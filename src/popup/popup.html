@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>X Power Toys</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<h1>X Power Toys</h1>
+
+<section id="feed">
+    <h2>Feed filters</h2>
+    <label><input type="checkbox" data-patch="feedFilters" data-key="mediaOnly"> Media only</label>
+    <label><input type="checkbox" data-patch="feedFilters" data-key="hideFollowed"> Hide followed profiles</label>
+    <label><input type="checkbox" data-patch="feedFilters" data-key="hideSuggested"> Hide suggestions</label>
+    <label for="include">Include keywords</label>
+    <textarea id="include" data-patch="feedFilters" data-key="includeKeywords" placeholder="One per line"></textarea>
+</section>
+
+<section id="keywords">
+    <h2>Filtered keywords</h2>
+    <textarea id="exclude" data-patch="filterByKeyword" data-key="keywords" placeholder="One per line"></textarea>
+</section>
+
+<p class="status" id="status" role="status"></p>
+
+<div class="buttons">
+    <button type="button" id="reload">Reload x.com</button>
+    <button type="button" id="settings" class="secondary">All settings</button>
+</div>
+
+<script src="../shared/catalogue.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

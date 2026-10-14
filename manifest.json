@@ -1,0 +1,80 @@
+{
+    "manifest_version": 3,
+    "name": "X Power Toys",
+    "version": "1.0.0",
+    "description": "The morphe X patches for x.com: remove ads, feed filters, downloads, undo posts, link fixes and more.",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "x-powertoys@ahmedyarub",
+            "strict_min_version": "128.0",
+            "data_collection_permissions": {
+                "required": ["none"]
+            }
+        }
+    },
+    "icons": {
+        "48": "icons/icon.svg",
+        "96": "icons/icon.svg"
+    },
+    "permissions": [
+        "storage",
+        "downloads",
+        "cookies",
+        "browsingData",
+        "declarativeNetRequest",
+        "clipboardWrite"
+    ],
+    "host_permissions": [
+        "*://x.com/*",
+        "*://*.x.com/*",
+        "*://twitter.com/*",
+        "*://*.twitter.com/*",
+        "*://*.twimg.com/*",
+        "*://vxtwitter.com/*",
+        "*://*.vxtwitter.com/*",
+        "*://fixvx.com/*",
+        "*://*.fixvx.com/*",
+        "*://fxtwitter.com/*",
+        "*://*.fxtwitter.com/*",
+        "*://fixupx.com/*",
+        "*://*.fixupx.com/*",
+        "*://twittpr.com/*",
+        "*://*.twittpr.com/*",
+        "*://xcancel.com/*",
+        "*://*.xcancel.com/*"
+    ],
+    "optional_host_permissions": [
+        "*://*/*"
+    ],
+    "background": {
+        "scripts": ["src/shared/catalogue.js", "src/background.js"]
+    },
+    "content_scripts": [
+        {
+            "matches": ["*://x.com/*", "*://twitter.com/*", "*://mobile.x.com/*", "*://mobile.twitter.com/*"],
+            "js": ["src/shared/catalogue.js", "src/page/rewrite.js", "src/page/hook.js"],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
+        {
+            "matches": ["*://x.com/*", "*://twitter.com/*", "*://mobile.x.com/*", "*://mobile.twitter.com/*"],
+            "js": [
+                "src/shared/catalogue.js",
+                "src/content/bridge.js",
+                "src/content/styles.js",
+                "src/content/card.js",
+                "src/content/ui.js"
+            ],
+            "run_at": "document_start"
+        }
+    ],
+    "action": {
+        "default_title": "X Power Toys",
+        "default_popup": "src/popup/popup.html",
+        "default_icon": "icons/icon.svg"
+    },
+    "options_ui": {
+        "page": "src/options/options.html",
+        "open_in_tab": true
+    }
+}

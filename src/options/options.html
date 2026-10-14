@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>X Power Toys settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+<header>
+    <img src="../../icons/icon.svg" alt="" width="40" height="40">
+    <div>
+        <h1>X Power Toys</h1>
+        <p class="lead">The morphe X patches, for x.com. Changes save at once; reload x.com to apply them.</p>
+    </div>
+</header>
+
+<nav id="groups" aria-label="Sections"></nav>
+
+<main id="patches"></main>
+
+<section id="tools" class="group" hidden>
+    <h2>Tools</h2>
+
+    <div class="card" id="login-tools" hidden>
+        <h3>Login token</h3>
+        <p class="desc">Moves an x.com session to another browser. The export is your session: treat it like a password and
+            delete it once imported.</p>
+        <textarea id="login-text" spellcheck="false" placeholder="Exported login appears here; paste one to import it."></textarea>
+        <div class="buttons">
+            <button type="button" id="login-export">Export login</button>
+            <button type="button" id="login-copy" class="secondary">Copy</button>
+            <button type="button" id="login-import" class="secondary">Import login</button>
+        </div>
+        <p class="status" id="login-status" role="status"></p>
+    </div>
+
+    <div class="card" id="cache-tools" hidden>
+        <h3>Delete from database</h3>
+        <p class="desc">Clears the timelines and other data x.com keeps in the browser (IndexedDB and its service worker).
+            You stay logged in.</p>
+        <div class="buttons">
+            <button type="button" id="clear-cache">Clear cached timelines</button>
+        </div>
+        <p class="status" id="cache-status" role="status"></p>
+    </div>
+</section>
+
+<footer>
+    <button type="button" id="reset" class="secondary">Reset all to defaults</button>
+    <span class="status" id="save-status" role="status"></span>
+</footer>
+
+<script src="../shared/catalogue.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
