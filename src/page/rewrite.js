@@ -517,6 +517,7 @@
             },
             text: readableText(post),
             createdAt: post.legacy?.created_at || '',
+            inReplyToId: post.legacy?.in_reply_to_status_id_str || null,
             replyCount: post.legacy?.reply_count || 0,
             retweetCount: post.legacy?.retweet_count || 0,
             likeCount: post.legacy?.favorite_count || 0,

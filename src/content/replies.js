@@ -1,13 +1,17 @@
 /*
  * Inline replies: a post's replies open right below it in the timeline, without leaving the page
- * or opening a dialog. The first page loads on Show replies; Load more and Expand all page on,
- * Expand all up to the configured number of replies. What was loaded stays when the post scrolls
- * away and is shown again when it comes back.
+ * or opening a dialog, as a tree: each reply sits under the one it answers, indented a level.
+ *
+ * Show replies loads the post's first page. Every reply with replies of its own can open them
+ * under it, any number of levels down; Load more, Show more replies and Expand all load the rest,
+ * Expand all opening the replies shown before the next page, up to the configured number of
+ * replies. What was loaded stays when the post scrolls away and is shown again when it comes back.
  */
 (function () {
     'use strict';
 
     const XPT = globalThis.XPT;
+    const T = globalThis.XPT_REPLY_TREE;
     const { postIdOf, pagePostId, svgIcon } = XPT.ui;
 
     const ICONS = {
@@ -17,6 +21,8 @@
     };
 
     const IMAGE_HOST = /^https:\/\/pbs\.twimg\.com\//;
+    /** Levels indented; deeper replies line up with the last indented level. */
+    const MAX_INDENT = 5;
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     /** What is known of each post's replies, by post id. */
@@ -27,15 +33,12 @@
         if (!state) {
             state = {
                 post,
-                threads: new Map(),
-                seen: new Set(),
-                next: [],
-                loaded: 0,
-                started: false,
+                tree: T.createConversation(post),
                 open: false,
                 busy: false,
                 error: null,
                 limitReached: false,
+                version: 0,
                 boxes: new Set(),
             };
             conversations.set(post.id, state);
@@ -45,58 +48,15 @@
 
     // region Loading
 
-    function addPosts(state, thread, posts) {
-        let added = 0;
-        for (const post of posts) {
-            if (state.seen.has(post.id)) continue;
-            state.seen.add(post.id);
-            thread.posts.push(post);
-            added++;
+    /** Loads one piece of work from the tree: a page of a conversation or the rest of a thread. */
+    async function load(state, work) {
+        if (work.kind === 'thread') state.tree.threadCursors.delete(work.id);
+        const { conversation: answer, error } = await XPT.getConversation(work.source, work.cursor);
+        if (error) {
+            if (work.kind === 'thread') state.tree.threadCursors.set(work.id, { source: work.source, cursor: work.cursor });
+            throw new Error(error);
         }
-        state.loaded += added;
-        return added;
-    }
-
-    /** Folds one answer into what is shown. The number of new replies. */
-    function merge(state, answer, usedCursor) {
-        let added = 0;
-        for (const incoming of answer.threads) {
-            let thread = state.threads.get(incoming.id);
-            if (!thread) {
-                thread = { id: incoming.id, posts: [], cursor: null };
-                state.threads.set(incoming.id, thread);
-            }
-            added += addPosts(state, thread, incoming.posts);
-            thread.cursor = incoming.cursor;
-        }
-        for (const addition of answer.additions) {
-            const thread = state.threads.get(addition.id);
-            if (!thread) continue;
-            added += addPosts(state, thread, addition.posts);
-            thread.cursor = addition.cursor;
-        }
-
-        const usedPage = state.next.find((page) => page.cursor === usedCursor);
-        state.next = state.next.filter((page) => page !== usedPage);
-        if (usedPage && !answer.threads.length && !answer.additions.length) {
-            // X keeps handing out a cursor of the same kind after the last page; an empty page ends it.
-            state.next = state.next.filter((page) => page.type !== usedPage.type);
-            return added;
-        }
-        for (const page of answer.next) {
-            if (!state.next.some((known) => known.cursor === page.cursor)) state.next.push(page);
-        }
-        return added;
-    }
-
-    async function request(state, cursor) {
-        const { conversation: answer, error } = await XPT.getConversation(state.post.id, cursor);
-        if (error) throw new Error(error);
-        return merge(state, answer, cursor);
-    }
-
-    function hasMore(state) {
-        return state.next.length > 0 || [...state.threads.values()].some((thread) => thread.cursor);
+        return T.merge(state.tree, work.source, answer, work.kind === 'page' ? work.cursor : null);
     }
 
     /** Runs one loading step with the busy state and errors shown. */
@@ -115,61 +75,48 @@
         }
     }
 
+    function rootStarted(state) {
+        return Boolean(state.tree.sources.get(state.post.id)?.started);
+    }
+
     function showReplies(state) {
         state.open = !state.open;
-        if (state.open && !state.started) {
-            state.started = true;
-            run(state, () => request(state, null));
+        if (state.open && !rootStarted(state)) {
+            run(state, () => load(state, { kind: 'page', id: state.post.id, source: state.post.id, cursor: null }));
         } else {
             update(state);
         }
     }
 
+    /** The post's own next page of replies. */
     function loadMore(state) {
-        const page = state.next[0];
-        if (page) run(state, () => request(state, page.cursor));
+        const page = T.moreAt(state.tree, state.post.id).find((work) => work.kind === 'page' && work.cursor);
+        if (page) run(state, () => load(state, page));
     }
 
-    function loadThread(state, thread) {
-        const cursor = thread.cursor;
-        if (!cursor) return;
-        run(state, async () => {
-            thread.cursor = null;
-            try {
-                await request(state, cursor);
-            } catch (error) {
-                thread.cursor = cursor;
-                throw error;
-            }
-        });
-    }
+    /** Branches loaded side by side by Expand all; more would draw X's request limits sooner. */
+    const PARALLEL = 3;
 
     /**
-     * Loads replies until the limit: the threads' own Show more first, then further pages, with
-     * a pause between requests so X does not start refusing them.
+     * Loads the replies until there are no more or the limit is reached: a few branches at a time,
+     * a pause between rounds.
      */
     function expandAll(state) {
         const limit = Number(XPT.opt('inlineReplies', 'maxReplies')) || 100;
         run(state, async () => {
             let idle = 0;
-            while (state.loaded < limit && idle < 3) {
-                const thread = [...state.threads.values()].find((candidate) => candidate.cursor);
-                const page = state.next[0];
-                if (!thread && !page) break;
-
-                let added;
-                if (thread) {
-                    const cursor = thread.cursor;
-                    thread.cursor = null;
-                    added = await request(state, cursor);
-                } else {
-                    added = await request(state, page.cursor);
-                }
+            while (state.tree.loaded < limit && idle < 10) {
+                const works = T.nextWorks(state.tree, PARALLEL);
+                if (!works.length) break;
+                const results = await Promise.allSettled(works.map((work) => load(state, work)));
+                const failure = results.find((result) => result.status === 'rejected');
+                if (failure) throw failure.reason;
+                const added = results.reduce((sum, result) => sum + result.value, 0);
                 idle = added ? 0 : idle + 1;
                 update(state);
-                await sleep(400);
+                await sleep(300);
             }
-            state.limitReached = state.loaded >= limit && hasMore(state);
+            state.limitReached = state.tree.loaded >= limit && T.nextWork(state.tree) !== null;
         });
     }
 
@@ -303,6 +250,44 @@
         return node;
     }
 
+    function button(label, action, disabled) {
+        const node = element('button', 'xpt-replies-button', label);
+        node.type = 'button';
+        node.disabled = disabled;
+        node.addEventListener('click', action);
+        return node;
+    }
+
+    /** The buttons under a reply for what more it can load. */
+    function moreButtons(state, more) {
+        return more.map((work) => {
+            const label = work.kind === 'thread'
+                ? 'Show more replies'
+                : work.first
+                    ? `Show replies (${count(work.remaining) || work.remaining})`
+                    : 'Load more replies';
+            const node = button(label, () => run(state, () => load(state, work)), state.busy);
+            node.classList.add('xpt-node-more');
+            return node;
+        });
+    }
+
+    /** A reply, then its replies indented under it, then what more it can load. */
+    function subtree(state, tree, id, depth) {
+        const node = element('div', 'xpt-node');
+        node.append(replyNode(state.tree.posts.get(id)));
+
+        const kids = tree.get(id) || [];
+        const more = T.moreAt(state.tree, id, tree);
+        if (kids.length || more.length) {
+            const branch = element('div', depth < MAX_INDENT ? 'xpt-branch' : 'xpt-branch xpt-branch-flat');
+            for (const kid of kids) branch.append(subtree(state, tree, kid, depth + 1));
+            branch.append(...moreButtons(state, more));
+            node.append(branch);
+        }
+        return node;
+    }
+
     function buildBox(state) {
         const box = element('div', 'xpt-replies');
         box.dataset.for = state.post.id;
@@ -313,15 +298,9 @@
         }
 
         const bar = element('div', 'xpt-replies-bar');
-        const toggle = element('button', 'xpt-replies-button');
-        toggle.type = 'button';
-        toggle.addEventListener('click', () => showReplies(state));
-        const more = element('button', 'xpt-replies-button', 'Load more');
-        more.type = 'button';
-        more.addEventListener('click', () => loadMore(state));
-        const all = element('button', 'xpt-replies-button', 'Expand all');
-        all.type = 'button';
-        all.addEventListener('click', () => expandAll(state));
+        const toggle = button('', () => showReplies(state), false);
+        const more = button('Load more', () => loadMore(state), false);
+        const all = button('Expand all', () => expandAll(state), false);
         const status = element('span', 'xpt-muted xpt-replies-status');
         status.setAttribute('role', 'status');
         bar.append(toggle, more, all, status);
@@ -335,44 +314,42 @@
     function renderBox(state, box) {
         const { toggle, more, all, status, list } = box.xpt;
         const total = state.post.replyCount;
+        const started = rootStarted(state);
+        const pending = started ? T.nextWork(state.tree) : null;
+        const rootPage = started && T.moreAt(state.tree, state.post.id).some((work) => work.kind === 'page' && work.cursor);
 
         toggle.textContent = state.open ? 'Hide replies' : `Show replies${total ? ` (${count(total)})` : ''}`;
-        const canLoad = state.open && state.started && !state.busy && hasMore(state);
-        more.hidden = !canLoad || !state.next.length;
-        all.hidden = !canLoad || state.limitReached;
-        toggle.disabled = false;
+        more.hidden = !state.open || !rootPage;
+        all.hidden = !state.open || !pending || state.limitReached;
+        more.disabled = all.disabled = state.busy;
 
-        if (state.busy) status.textContent = 'Loading…';
+        const loaded = state.tree.loaded;
+        if (state.busy) status.textContent = `${loaded ? `${loaded} · ` : ''}Loading…`;
         else if (state.error) status.textContent = state.error;
-        else if (state.open && state.started) {
-            status.textContent = `${state.loaded} ${state.loaded === 1 ? 'reply' : 'replies'}` +
-                (state.limitReached ? ' · Expand all limit reached' : !hasMore(state) ? ' · all loaded' : '');
+        else if (state.open && started) {
+            status.textContent = `${loaded} ${loaded === 1 ? 'reply' : 'replies'}` +
+                (state.limitReached ? ' · Expand all limit reached' : !pending ? ' · all loaded' : '');
         } else status.textContent = '';
         status.classList.toggle('xpt-error', Boolean(state.error));
 
         list.hidden = !state.open;
-        if (!state.open || box.xpt.rendered === state.loaded + (hasMore(state) ? 0.5 : 0)) return;
-        box.xpt.rendered = state.loaded + (hasMore(state) ? 0.5 : 0);
+        if (!state.open || box.xpt.rendered === state.version) return;
+        box.xpt.rendered = state.version;
 
+        const tree = T.children(state.tree);
         list.replaceChildren();
-        for (const thread of state.threads.values()) {
-            if (!thread.posts.length && !thread.cursor) continue;
-            const group = element('div', 'xpt-thread');
-            for (const post of thread.posts) group.append(replyNode(post));
-            if (thread.cursor) {
-                const button = element('button', 'xpt-replies-button xpt-thread-more', 'Show more replies');
-                button.type = 'button';
-                button.addEventListener('click', () => loadThread(state, thread));
-                group.append(button);
-            }
-            list.append(group);
+        for (const id of tree.get(state.post.id) || []) {
+            const thread = element('div', 'xpt-thread');
+            thread.append(subtree(state, tree, id, 1));
+            list.append(thread);
         }
-        if (state.started && !state.loaded && !state.busy && !state.error) {
+        if (started && !loaded && !state.busy && !state.error) {
             list.append(element('div', 'xpt-muted xpt-replies-empty', 'No replies to show.'));
         }
     }
 
     function update(state) {
+        state.version++;
         for (const box of state.boxes) {
             if (!box.isConnected) {
                 state.boxes.delete(box);

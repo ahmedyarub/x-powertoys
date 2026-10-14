@@ -87,7 +87,7 @@ client that none of this applies to.
 
 | Patch | On x.com |
 | --- | --- |
-| Inline replies | *Show replies* under every post with replies opens them right below it: no dialog, no leaving the timeline. *Load more* fetches the next page, *Show more replies* the rest of a thread, and *Expand all* keeps going until the configured limit (default 100). Replies go through the same filters as timelines; what was loaded stays when the post scrolls away and back |
+| Inline replies | *Show replies* under every post with replies opens them right below it as a tree: no dialog, no leaving the timeline. Each reply sits under the one it answers, a level further in with a thread line (indenting stops after five levels), and any reply with replies of its own has its own *Show replies*, to any depth. *Load more* fetches the post's next page, *Show more replies* the rest of a thread, and *Expand all* opens everything shown, all the way down, before fetching the next page, three branches at a time, until the configured limit (default 100) counted over every level. Replies go through the same filters as timelines; what was loaded stays when the post scrolls away and back |
 | Follow button on posts | A Follow button next to the author's name on posts by accounts you do not follow (not on your own posts, or accounts you block or that block you). It follows through the post's own menu, so x.com sends its usual request, and the button goes only once the server confirms the follow; protected accounts get a follow request. Unfollowing elsewhere brings the button back |
 
 ### Not carried over

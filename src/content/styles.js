@@ -142,8 +142,10 @@
             .xpt-replies-status.xpt-error { color: rgb(244, 33, 46); }
             .xpt-muted { color: var(--xpt-muted); text-decoration: none; }
             .xpt-thread { position: relative; padding: 2px 0; border-top: 1px solid var(--xpt-line); }
-            .xpt-thread .xpt-reply + .xpt-reply::before { content: ""; position: absolute; left: 15px; top: -6px; height: 8px;
-                border-left: 2px solid var(--xpt-line); }
+            /* Each level of replies sits under its parent's avatar, a thread line down its left. */
+            .xpt-branch { margin-left: 19px; padding-left: 12px; border-left: 2px solid var(--xpt-line); }
+            .xpt-branch-flat { margin-left: 0; padding-left: 0; border-left: 0; }
+            .xpt-node-more { display: block; margin: 0 0 4px 4px; }
             .xpt-reply { position: relative; display: flex; gap: 10px; padding: 8px 4px; border-radius: 8px; cursor: pointer; }
             .xpt-reply:hover { background: var(--xpt-hover); }
             .xpt-reply-avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--xpt-line); }
@@ -166,7 +168,6 @@
             .xpt-reply-stats { display: flex; gap: 28px; margin-top: 6px; font-size: 13px; }
             .xpt-reply-stat { display: inline-flex; align-items: center; gap: 4px; min-width: 40px; }
             .xpt-reply-stat svg { width: 15px; height: 15px; fill: currentColor; }
-            .xpt-thread-more { margin-left: 46px; }
             .xpt-replies-empty { padding: 8px 0; font-size: 14px; }
             /* While the Follow button drives the post menu, the menu stays out of sight. */
             html.xpt-quiet #layers [role="menu"] { opacity: 0 !important; }
