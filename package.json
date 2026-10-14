@@ -1,6 +1,6 @@
 {
     "name": "x-powertoys",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "private": true,
     "description": "The morphe X patches as a Firefox extension for x.com",
     "license": "GPL-3.0-only",

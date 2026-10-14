@@ -74,7 +74,8 @@
         },
         {
             id: 'postActionButtons', group: 'timeline', name: 'Block and Not interested buttons',
-            description: 'Shows Not interested and Block buttons next to the author\'s name on every post but your own. ' +
+            description: 'Shows Block next to the author\'s name on every post but your own, and Not interested on posts ' +
+                'by accounts you do not follow. ' +
                 'They act through the post\'s own menu, and change only once X confirms.',
             options: [
                 bool('showNotInterested', 'Show Not interested', true),

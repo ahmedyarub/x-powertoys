@@ -637,7 +637,8 @@
             bar.append(actionButton('Follow', `Follow @${post.screenName}`, 'xpt-follow', () => follow(article, post)));
         }
         if (XPT.on('postActionButtons')) {
-            if (XPT.opt('postActionButtons', 'showNotInterested') && post.takesFeedback) {
+            // Not interested is for accounts you do not follow, and only where the site takes it.
+            if (XPT.opt('postActionButtons', 'showNotInterested') && post.takesFeedback && post.followState === 'none') {
                 bar.append(actionButton('Not interested', 'Not interested in this post', 'xpt-chip', (button) => notInterested(article, post, button)));
             }
             if (XPT.opt('postActionButtons', 'showBlock') && !author.blocking) {
