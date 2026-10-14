@@ -49,13 +49,14 @@ client that none of this applies to.
 | Force enable translate | Marks every post translatable, so *Show translation* is offered on all of them |
 | Disable auto timeline scroll on launch | Remembers the top post of each home tab and scrolls back to it on the next visit, loading more as needed. For you is regenerated each visit, so it is skipped |
 | Customize Inline action Bar items | Hides reply, repost, like, views, bookmark, share |
-| Customize Navigation Bar items | Hides Explore, Grok (default), Notifications, Chat, Calls; Grok and Chat take their floating buttons with them |
+| Customize Navigation Bar items | Hides Explore, Grok (default), Notifications, Chat, Calls (default); Grok and Chat take their floating buttons with them |
 | Customize default reply sorting | Opens conversations sorted by Relevance, Recent or Likes. The sort menu keeps showing the site default; picking a sort there still works |
 | Customize explore tabs | Drops Explore tabs by id (`for_you`, `trending`, `news`, `sports`, `entertainment`) |
 | Customize notification tabs | Hides All, Mentions, Verified, Priority |
 | Customize search suggestions | Empties the accounts or the query suggestions of the search box |
 | Customize search tab items | Hides Top, Latest, People, Media, Lists |
-| Customize side bar items | Hides rows of the side navigation and its More menu: Premium, Communities, Bookmarks / History, Community Notes, Lists, Spaces, Follow requests, Monetization, Creator Studio, Analytics, Business, Ads, Grok (default) |
+| Customize side bar items | Hides rows of the side navigation and its More menu: Premium, Communities, Bookmarks / History, Community Notes, Lists, Spaces, Follow requests, Monetization, Creator Studio (default), Analytics, Business, Ads, Grok (default) |
+| Customize right side bar | Hides the Who to follow (and You might like) and What's happening cards (both by default), and Today's News, from the column on the right. Not an Android patch |
 | Customize timeline top bar | Hides For you, Following, pinned lists, communities and topics, and the Manage timelines (+) button; switches away from a hidden tab |
 | Hide promote button | Hides Promote / Boost links on your posts and in their menu |
 | Remove premium upsell | Turns off every `*upsell*` feature switch and the paywall switches, hides the Premium row, Subscribe cards and Get verified prompts |

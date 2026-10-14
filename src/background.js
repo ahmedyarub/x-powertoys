@@ -193,9 +193,25 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) syncLinkRules(catalogue.merge(changes.settings.newValue)).catch(console.warn);
 });
 
+/**
+ * Changes to saved settings that new defaults alone do not reach, as installs keep the defaults
+ * they started with. Each runs once, in order; a fresh install starts past all of them.
+ */
+const MIGRATIONS = [
+    // Calls and Creator Studio became hidden by default.
+    (saved) => {
+        saved.options.navBar.hideCalls = true;
+        saved.options.sideBar.hideCreatorStudio = true;
+    },
+];
+
 browser.runtime.onInstalled.addListener(async () => {
-    const current = await settings();
-    await browser.storage.local.set({ settings: current });
+    const { settings: stored, settingsVersion } = await browser.storage.local.get(['settings', 'settingsVersion']);
+    const current = catalogue.merge(stored);
+    if (stored) {
+        for (const migrate of MIGRATIONS.slice(Number(settingsVersion) || 0)) migrate(current);
+    }
+    await browser.storage.local.set({ settings: current, settingsVersion: MIGRATIONS.length });
     await syncLinkRules(current);
 });
 

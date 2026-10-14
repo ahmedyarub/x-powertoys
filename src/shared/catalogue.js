@@ -106,7 +106,7 @@
                 bool('hideGrok', 'Hide Grok', true, 'Also hides the floating Grok button.'),
                 bool('hideNotifications', 'Hide Notifications'),
                 bool('hideDm', 'Hide Chat', false, 'Also hides the floating chat button.'),
-                bool('hideCalls', 'Hide Calls'),
+                bool('hideCalls', 'Hide Calls', true),
             ],
         },
         {
@@ -157,11 +157,20 @@
                 bool('hideSpaces', 'Hide Spaces'),
                 bool('hideFollowRequests', 'Hide Follow requests'),
                 bool('hideMonetization', 'Hide Monetization'),
-                bool('hideCreatorStudio', 'Hide Creator Studio'),
+                bool('hideCreatorStudio', 'Hide Creator Studio', true),
                 bool('hideAnalytics', 'Hide Analytics'),
                 bool('hideBusiness', 'Hide Business'),
                 bool('hideAds', 'Hide Ads'),
                 bool('hideGrok', 'Hide Grok', true),
+            ],
+        },
+        {
+            id: 'rightSidebar', group: 'customize', name: 'Customize right side bar',
+            description: 'Hides cards from the column on the right of the timeline.',
+            options: [
+                bool('hideWhoToFollow', 'Hide Who to follow', true, 'Also You might like on profiles.'),
+                bool('hideWhatsHappening', 'Hide What\'s happening', true, 'The trends card.'),
+                bool('hideTodaysNews', 'Hide Today\'s News'),
             ],
         },
         {

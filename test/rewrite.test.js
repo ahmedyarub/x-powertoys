@@ -501,5 +501,5 @@ test('settings merge drops unknown and invalid values', () => {
     assert.equal(merged.options.undoPosts.seconds, 10);
     assert.equal(merged.options.replySort.sort, 'Likes');
     assert.deepEqual(merged.options.filterByKeyword.keywords, []);
-    assert.equal(catalogue.PATCHES.length, 43);
+    assert.equal(catalogue.PATCHES.length, 44);
 });

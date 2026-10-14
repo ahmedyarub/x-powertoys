@@ -59,6 +59,12 @@
             hideAds: [`${NAV_OR_MENU} a[href^="https://ads.x.com"]`],
             hideGrok: [`${NAV_OR_MENU} a[href="/i/grok"]`],
         },
+        rightSidebar: {
+            // The bordered card around each section; the column holds them side by side.
+            hideWhoToFollow: ['[data-testid="sidebarColumn"] div:has(> div > aside a[href^="/i/connect_people"])'],
+            hideWhatsHappening: ['[data-testid="sidebarColumn"] div:has(> section [data-testid="trend"])'],
+            hideTodaysNews: ['[data-testid="sidebarColumn"] div:has(> [data-testid="news_sidebar"])'],
+        },
         homeTabs: {
             // For you and Following are the first two tabs; pinned timelines follow them.
             hideForYou: [`html[data-xpt-page="home"] [data-testid="primaryColumn"] [role="tablist"] [role="presentation"]:has(> [role="tab"]):nth-child(1)`],
