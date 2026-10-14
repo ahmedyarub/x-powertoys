@@ -503,7 +503,7 @@
                     primary: true,
                     action: async () => {
                         await XPT.saveOptions('filterByKeyword', { keywords: lines(area.value) });
-                        toast('Saved. Refreshing the feed…');
+                        toast('Saved. Refreshing…');
                     },
                 },
             ],
@@ -548,7 +548,7 @@
                             hideSuggested: toggles.hideSuggested.checked,
                             includeKeywords: lines(include.value),
                         });
-                        toast('Saved. Refreshing the feed…');
+                        toast('Saved. Refreshing…');
                     },
                 },
             ],
@@ -836,10 +836,12 @@
      */
     let refreshTimer = null;
 
+    // Settings are saved with an explicit Save in the popup and the page's dialogs, so the page
+    // refreshes at once; the short wait only folds the writes of one save into one refresh.
     XPT.onNeedsReload(() => {
         console.debug('[X Power Toys] A settings change needs the page refreshed');
         clearTimeout(refreshTimer);
-        refreshTimer = setTimeout(refreshWhenShown, 1500);
+        refreshTimer = setTimeout(refreshWhenShown, 150);
     });
 
     let waitingForView = false;

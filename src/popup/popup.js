@@ -2,14 +2,27 @@
 
 const catalogue = globalThis.XPT_CATALOGUE;
 let settings = catalogue.defaults();
-let saveTimer = null;
 
-function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-        await browser.storage.local.set({ settings });
-        document.getElementById('status').textContent = 'Saved. Open x.com tabs refresh to show it.';
-    }, 800);
+const saveButton = document.getElementById('save');
+const status = document.getElementById('status');
+
+function changed() {
+    saveButton.disabled = false;
+    status.textContent = 'Not saved yet.';
+}
+
+/** Saves the edits; open x.com pages refresh to show them. */
+async function save() {
+    saveButton.disabled = true;
+    const { settings: stored } = await browser.storage.local.get('settings');
+    const next = catalogue.merge(stored);
+    for (const control of document.querySelectorAll('[data-patch]')) {
+        const { patch, key } = control.dataset;
+        next.options[patch][key] = settings.options[patch][key];
+    }
+    await browser.storage.local.set({ settings: next });
+    settings = next;
+    status.textContent = 'Saved. x.com is refreshing.';
 }
 
 function bind() {
@@ -23,26 +36,25 @@ function bind() {
             control.checked = value === true;
             control.addEventListener('change', () => {
                 settings.options[patch][key] = control.checked;
-                save();
+                changed();
             });
         } else {
             control.value = value.join('\n');
             control.addEventListener('input', () => {
                 settings.options[patch][key] = control.value.split('\n').map((line) => line.trim()).filter(Boolean);
-                save();
+                changed();
             });
         }
     }
 }
 
+saveButton.addEventListener('click', () => save().catch((error) => {
+    saveButton.disabled = false;
+    status.textContent = `Could not save: ${error.message}`;
+}));
+
 document.getElementById('settings').addEventListener('click', () => {
     browser.runtime.openOptionsPage();
-    window.close();
-});
-
-document.getElementById('reload').addEventListener('click', async () => {
-    const tabs = await browser.tabs.query({ url: ['*://x.com/*', '*://*.x.com/*', '*://twitter.com/*'] });
-    for (const tab of tabs) browser.tabs.reload(tab.id);
     window.close();
 });
 
