@@ -121,13 +121,18 @@
                 margin-left: -8px; border: 0; border-radius: 999px; background: transparent; color: rgb(113, 118, 123); cursor: pointer; }
             .xpt-action button:hover { background: rgba(29, 155, 240, 0.1); color: rgb(29, 155, 240); }
             .xpt-action svg { width: 18.75px; height: 18.75px; fill: currentColor; }
-            .xpt-follow { flex: none; align-self: center; margin: 0 6px 0 4px; padding: 0 12px; height: 24px; border: 0;
-                border-radius: 999px; font: 700 13px/24px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                cursor: pointer; }
-            .xpt-follow-dark { background: #eff3f4; color: #0f1419; }
-            .xpt-follow-light { background: #0f1419; color: #ffffff; }
-            .xpt-follow:hover { opacity: 0.85; }
-            .xpt-follow:disabled { opacity: 0.5; cursor: progress; }
+            .xpt-actions { flex: none; display: inline-flex; align-items: center; gap: 6px; margin: 0 6px 0 4px; }
+            .xpt-follow, .xpt-chip { flex: none; padding: 0 12px; height: 24px; border-radius: 999px; cursor: pointer;
+                font: 700 13px/22px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; white-space: nowrap; }
+            .xpt-follow { border: 1px solid transparent; }
+            .xpt-actions-dark .xpt-follow { background: #eff3f4; color: #0f1419; }
+            .xpt-actions-light .xpt-follow { background: #0f1419; color: #ffffff; }
+            .xpt-chip { background: transparent; border: 1px solid rgb(83, 100, 113); }
+            .xpt-actions-dark .xpt-chip { color: #e7e9ea; }
+            .xpt-actions-light .xpt-chip { color: #0f1419; border-color: rgb(207, 217, 222); }
+            .xpt-chip-danger { color: rgb(244, 33, 46) !important; border-color: rgba(244, 33, 46, 0.5) !important; }
+            .xpt-follow:hover, .xpt-chip:hover { opacity: 0.85; }
+            .xpt-follow:disabled, .xpt-chip:disabled { opacity: 0.5; cursor: progress; }
             .xpt-replies { --xpt-text: #0f1419; --xpt-muted: #536471; --xpt-line: #eff3f4; --xpt-hover: rgba(0, 0, 0, 0.03);
                 padding: 0 16px 10px 68px; color: var(--xpt-text); border-bottom: 1px solid var(--xpt-line);
                 font: 15px/20px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; cursor: default; }

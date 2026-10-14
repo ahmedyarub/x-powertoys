@@ -207,6 +207,13 @@
                 if (post.card?.legacy) cards.push(post.card.legacy);
             }
 
+            // A timeline item the site can be told Not interested about carries feedback keys;
+            // a post on a profile or in a conversation has none, and its menu no such option.
+            if (object.feedbackInfo?.feedbackKeys?.length && object.itemContent?.tweet_results) {
+                const feedbackPost = unwrapTweet(object.itemContent.tweet_results.result);
+                if (feedbackPost) store?.feedback?.(feedbackPost.rest_id);
+            }
+
             if (typeof object.url === 'string' && object.url.startsWith('https://t.co/') &&
                 typeof object.expanded_url === 'string' && object.expanded_url) {
                 links.set(object.url, object.expanded_url);

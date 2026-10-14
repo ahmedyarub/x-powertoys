@@ -594,41 +594,66 @@
 
     // endregion
 
-    // region Follow button
+    // region Follow, Not interested and Block buttons
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    /** Follows in flight, by user id: resolved by the server's confirmation. */
-    const followWaits = new Map();
+    /** Actions in flight waiting for the server: follows and blocks by user id, feedback in order. */
+    const waits = { follow: new Map(), block: new Map(), feedback: [] };
 
-    async function decorateFollowButtons() {
-        if (!XPT.on('followButton')) return;
+    function wantsPostActions() {
+        return XPT.on('followButton') ||
+            (XPT.on('postActionButtons') && (XPT.opt('postActionButtons', 'showNotInterested') || XPT.opt('postActionButtons', 'showBlock')));
+    }
 
-        for (const article of document.querySelectorAll('article[data-testid="tweet"]:not([data-xpt-follow])')) {
+    function decoratePostActions() {
+        if (!wantsPostActions()) return;
+
+        for (const article of document.querySelectorAll('article[data-testid="tweet"]:not([data-xpt-actions])')) {
             const name = article.querySelector('[data-testid="User-Name"]');
             const id = name && postIdOf(article);
             if (!id) continue;
-            article.dataset.xptFollow = 'pending';
+            article.dataset.xptActions = 'pending';
 
             XPT.getPost(id).then(({ post }) => {
-                article.dataset.xptFollow = 'done';
+                article.dataset.xptActions = 'done';
                 if (!post || !post.author.id) return;
                 article.dataset.xptAuthor = post.author.id;
-                if (post.isViewer || post.followState !== 'none' || post.author.blocking || post.author.blockedBy) return;
-                if (name.querySelector('.xpt-follow')) return;
-                name.firstElementChild?.after(followButton(article, post));
+                renderPostActions(article, name, post);
             });
         }
     }
 
-    function followButton(article, post) {
+    /** The buttons next to the author's name, for what the post's author can still be done with. */
+    function renderPostActions(article, name, post) {
+        name.querySelector('.xpt-actions')?.remove();
+        if (post.isViewer) return;
+
+        const { author } = post;
+        const bar = document.createElement('span');
+        bar.className = `xpt-actions ${isDark() ? 'xpt-actions-dark' : 'xpt-actions-light'}`;
+
+        if (XPT.on('followButton') && post.followState === 'none' && !author.blocking && !author.blockedBy) {
+            bar.append(actionButton('Follow', `Follow @${post.screenName}`, 'xpt-follow', () => follow(article, post)));
+        }
+        if (XPT.on('postActionButtons')) {
+            if (XPT.opt('postActionButtons', 'showNotInterested') && post.takesFeedback) {
+                bar.append(actionButton('Not interested', 'Not interested in this post', 'xpt-chip', (button) => notInterested(article, post, button)));
+            }
+            if (XPT.opt('postActionButtons', 'showBlock') && !author.blocking) {
+                bar.append(actionButton('Block', `Block @${post.screenName}`, 'xpt-chip xpt-chip-danger', () => block(article, post)));
+            }
+        }
+        if (bar.children.length) name.firstElementChild?.after(bar);
+    }
+
+    function actionButton(label, description, className, action) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `xpt-follow ${isDark() ? 'xpt-follow-dark' : 'xpt-follow-light'}`;
-        button.dataset.xptUser = post.author.id;
-        button.textContent = 'Follow';
-        button.title = `Follow @${post.screenName}`;
-        button.setAttribute('aria-label', `Follow @${post.screenName}`);
+        button.className = className;
+        button.textContent = label;
+        button.title = description;
+        button.setAttribute('aria-label', description);
 
         // The post opens on a press anywhere in it; this one is the button's alone.
         for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
@@ -641,11 +666,12 @@
 
             button.disabled = true;
             try {
-                await follow(article, post);
+                await action(button);
             } catch (error) {
-                toast(error.message, 4000);
+                // Gone already: what it did shows in its place.
+                if (button.isConnected && error?.message) toast(error.message, 4000);
             } finally {
-                // Still here: the follow was not confirmed.
+                // Still here: the action was not confirmed.
                 if (button.isConnected) button.disabled = false;
             }
         });
@@ -653,31 +679,44 @@
     }
 
     /**
-     * Follows the author through the post's own menu, so the site sends the request as it would
-     * for its own Follow option, then waits for the server to confirm it. The button goes when
-     * the confirmation arrives, not before.
+     * Picks an option from the post's own menu, kept out of sight, so the site does what it does
+     * for that option. pick gets the menu's options once they are there.
      */
-    async function follow(article, post) {
-        const confirmed = new Promise((resolve) => followWaits.set(post.author.id, resolve));
+    async function useMenuOption(article, pick, what) {
         const caret = article.querySelector('[data-testid="caret"]');
-        if (!caret) throw new Error('This post has no menu to follow from');
+        if (!caret) throw new Error(`This post has no menu to ${what} from`);
 
-        const handle = `@${post.screenName}`.toLowerCase();
         document.documentElement.classList.add('xpt-quiet');
         try {
             caret.click();
             let item = null;
             for (let tries = 0; tries < 30 && !item; tries++) {
                 await sleep(50);
-                item = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((option) =>
-                    !option.dataset.testid && !option.dataset.xptItem && !option.getAttribute('href') &&
-                    (option.innerText || '').toLowerCase().includes(handle));
+                const options = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].filter((option) => !option.dataset.xptItem);
+                if (options.length) item = pick(options);
             }
             if (!item) {
                 closeMenus();
-                throw new Error(`Could not find Follow ${'@' + post.screenName} in the post menu`);
+                throw new Error(`Could not find ${what} in the post menu`);
             }
             item.click();
+        } finally {
+            document.documentElement.classList.remove('xpt-quiet');
+        }
+    }
+
+    function untilConfirmed(promise, ms) {
+        return Promise.race([promise, sleep(ms).then(() => null)]);
+    }
+
+    /** Follows the author; the button goes when the server confirms the follow, not before. */
+    async function follow(article, post) {
+        const confirmed = new Promise((resolve) => waits.follow.set(post.author.id, resolve));
+        const handle = `@${post.screenName}`.toLowerCase();
+        try {
+            await useMenuOption(article, (options) => options.find((option) =>
+                !option.dataset.testid && !option.getAttribute('href') && (option.innerText || '').toLowerCase().includes(handle)),
+            `Follow @${post.screenName}`);
 
             // Already followed after all: the site asks to confirm an unfollow. Say no.
             await sleep(300);
@@ -686,26 +725,87 @@
                 cancel.click();
                 throw new Error(`You already follow @${post.screenName}`);
             }
+            if (!(await untilConfirmed(confirmed, 10000))) throw new Error(`X did not confirm following @${post.screenName}`);
         } finally {
-            document.documentElement.classList.remove('xpt-quiet');
+            waits.follow.delete(post.author.id);
         }
-
-        const state = await Promise.race([confirmed, sleep(10000).then(() => null)]);
-        followWaits.delete(post.author.id);
-        if (!state) throw new Error(`X did not confirm following @${post.screenName}`);
     }
 
-    XPT.onFollow((userId, state) => {
-        followWaits.get(userId)?.(state);
-        if (state === 'none') {
-            // Unfollowed: the posts of that account get their button back.
-            for (const article of document.querySelectorAll(`article[data-xpt-author="${CSS.escape(userId)}"]`)) {
-                delete article.dataset.xptFollow;
+    /**
+     * Not interested in this post: the menu's first option, which is that on every post but your
+     * own. The site swaps the post for its own notice with Undo.
+     */
+    async function notInterested(article, post, button) {
+        let settle;
+        const confirmed = new Promise((resolve) => { settle = resolve; });
+        waits.feedback.push(settle);
+        const handle = `@${post.screenName}`.toLowerCase();
+        try {
+            await useMenuOption(article, (options) => {
+                const first = options[0];
+                const fits = first && !first.dataset.testid && !first.getAttribute('href') &&
+                    !(first.innerText || '').toLowerCase().includes(handle);
+                return fits ? first : null;
+            }, 'Not interested');
+            if (!(await untilConfirmed(confirmed, 10000)) && button.isConnected) {
+                throw new Error('X did not confirm Not interested');
             }
-            schedule();
-        } else {
-            for (const button of document.querySelectorAll(`.xpt-follow[data-xpt-user="${CSS.escape(userId)}"]`)) button.remove();
+        } finally {
+            const index = waits.feedback.indexOf(settle);
+            if (index >= 0) waits.feedback.splice(index, 1);
         }
+    }
+
+    /**
+     * Blocks the author. The site asks Block @user? as it always does, unless that is turned off;
+     * the buttons go when the server confirms the block, and stay when the question is declined.
+     */
+    async function block(article, post) {
+        const confirmed = new Promise((resolve) => waits.block.set(post.author.id, resolve));
+        try {
+            await useMenuOption(article, (options) => options.find((option) => option.dataset.testid === 'block'), `Block @${post.screenName}`);
+
+            await sleep(300);
+            if (!XPT.opt('postActionButtons', 'confirmBlock')) {
+                document.querySelector('[data-testid="confirmationSheetConfirm"]')?.click();
+            }
+
+            // Wait while X's question is open, then up to five seconds for the server's answer. No
+            // answer means the question was declined or the block failed: the buttons stay.
+            let closedAt = null;
+            while (!(await untilConfirmed(confirmed, 250))) {
+                if (document.querySelector('[data-testid="confirmationSheetDialog"]')) {
+                    closedAt = null;
+                    continue;
+                }
+                closedAt ??= Date.now();
+                if (Date.now() - closedAt > 5000) return;
+            }
+        } finally {
+            waits.block.delete(post.author.id);
+        }
+    }
+
+    /** Shows the posts of an account anew after its follow or block state changed. */
+    function refreshAuthor(userId) {
+        for (const article of document.querySelectorAll(`article[data-xpt-author="${CSS.escape(userId)}"]`)) {
+            delete article.dataset.xptActions;
+        }
+        schedule();
+    }
+
+    XPT.onOutcome('follow', ({ userId, state }) => {
+        waits.follow.get(String(userId))?.(state);
+        refreshAuthor(String(userId));
+    });
+
+    XPT.onOutcome('block', ({ userId, state }) => {
+        waits.block.get(String(userId))?.(state);
+        refreshAuthor(String(userId));
+    });
+
+    XPT.onOutcome('feedback', ({ undo }) => {
+        if (!undo) waits.feedback.shift()?.(true);
     });
 
     // endregion
@@ -917,7 +1017,7 @@
         trackPage();
         processMenus();
         decorateActionBars();
-        decorateFollowButtons();
+        decoratePostActions();
         keepVisibleHomeTab();
         restorePosition();
         for (const scanner of XPT.scanners) {

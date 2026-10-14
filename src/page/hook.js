@@ -46,7 +46,13 @@
             links.set(short, expanded);
             if (links.size > LINK_LIMIT) links.delete(links.keys().next().value);
         },
+        /** A post that came as a timeline item the site takes Not interested feedback on. */
+        feedback(id) {
+            withFeedback.add(id);
+            if (withFeedback.size > POST_LIMIT) withFeedback.delete(withFeedback.values().next().value);
+        },
     };
+    const withFeedback = new Set();
 
     function screenNameOf(id) {
         const post = posts.get(id);
@@ -74,15 +80,45 @@
         return 'none';
     }
 
+    /** Blocks and unblocks the server confirmed this visit, by user id. */
+    const confirmedBlocks = new Map();
+
     const FRIENDSHIP = /\/1\.1\/friendships\/(create|destroy|cancel)\.json$/;
+    const BLOCK = /\/1\.1\/blocks\/(create|destroy)\.json$/;
+    const FEEDBACK = /\/graphql\/[^/]+\/timelinesFeedback$/;
+
+    /** Requests whose outcome the UI waits for: follows, blocks and Not interested feedback. */
+    function isWatched(url) {
+        const path = new URL(url, location.href).pathname;
+        return FRIENDSHIP.test(path) || BLOCK.test(path) || FEEDBACK.test(path);
+    }
+
+    function tellUi(message) {
+        window.postMessage('xpt:' + JSON.stringify({ to: 'ui', ...message }), location.origin);
+    }
 
     /**
-     * Records the outcome of a follow, unfollow or request cancel once the server has answered,
-     * and tells the UI. Nothing is reported for a request that failed.
+     * Records the outcome of a follow, unfollow, request cancel, block, unblock or Not interested
+     * once the server has answered, and tells the UI. Nothing is reported for a request that failed.
      */
-    function watchFriendship(method, url, body, status, responseText) {
-        const action = method === 'POST' && (new URL(url, location.href).pathname.match(FRIENDSHIP) || [])[1];
-        if (!action || status !== 200) return;
+    function watchOutcome(method, url, body, status, responseText) {
+        if (method !== 'POST' || status !== 200) return;
+        const path = new URL(url, location.href).pathname;
+
+        if (FEEDBACK.test(path)) {
+            let undo = false;
+            try {
+                undo = JSON.parse(body).variables?.undo === true;
+            } catch {
+                // A body the site did not send as JSON; taken as the feedback itself.
+            }
+            tellUi({ type: 'feedback', undo });
+            return;
+        }
+
+        const follow = (path.match(FRIENDSHIP) || [])[1];
+        const block = (path.match(BLOCK) || [])[1];
+        if (!follow && !block) return;
 
         let user = null;
         try {
@@ -93,9 +129,17 @@
         const userId = user?.id_str || (typeof body === 'string' ? new URLSearchParams(body).get('user_id') : null);
         if (!userId) return;
 
-        const state = action === 'create' ? (user?.protected === true ? 'requested' : 'following') : 'none';
-        confirmedFollows.set(userId, state);
-        window.postMessage('xpt:' + JSON.stringify({ to: 'ui', type: 'follow', userId, state }), location.origin);
+        if (follow) {
+            const state = follow === 'create' ? (user?.protected === true ? 'requested' : 'following') : 'none';
+            confirmedFollows.set(userId, state);
+            tellUi({ type: 'follow', userId, state });
+        } else {
+            const state = block === 'create' ? 'blocked' : 'none';
+            confirmedBlocks.set(userId, state);
+            // A block ends a follow both ways.
+            if (state === 'blocked') confirmedFollows.set(userId, 'none');
+            tellUi({ type: 'block', userId, state });
+        }
     }
 
     // endregion
@@ -125,10 +169,12 @@
         }
     });
 
-    /** A post's summary with what only the page knows: the follow state and if it is your own. */
+    /** A post's summary with what only the page knows: follow and block state, and if it is your own. */
     function describe(post) {
         const summary = R.summarize(post);
         summary.followState = followState(summary.author);
+        if (confirmedBlocks.has(summary.author.id)) summary.author.blocking = confirmedBlocks.get(summary.author.id) === 'blocked';
+        summary.takesFeedback = withFeedback.has(summary.id);
         summary.isViewer = summary.author.id !== '' && summary.author.id === viewerId();
         return summary;
     }
@@ -347,7 +393,7 @@
         if (!info?.kind) return nativeSend.call(this, body);
 
         const rewritten = rewriteBody(info.url, body);
-        if (FRIENDSHIP.test(new URL(info.url, location.href).pathname)) {
+        if (isWatched(info.url)) {
             this.addEventListener('load', () => {
                 let text = '';
                 try {
@@ -355,7 +401,7 @@
                 } catch {
                     // A JSON or binary response type; the request body names the user.
                 }
-                watchFriendship(info.method, info.url, rewritten, this.status, text);
+                watchOutcome(info.method, info.url, rewritten, this.status, text);
             });
         }
         if (on(settings, 'undoPosts') && isPostCreation(info.method, info.url)) {
@@ -446,8 +492,8 @@
         }
 
         const response = await nativeFetch.call(this, target, options);
-        if (kind === 'api' && FRIENDSHIP.test(new URL(url, location.href).pathname)) {
-            response.clone().text().then((text) => watchFriendship(method, url, options?.body, response.status, text)).catch(() => {});
+        if (kind === 'api' && isWatched(url)) {
+            response.clone().text().then((text) => watchOutcome(method, url, options?.body, response.status, text)).catch(() => {});
         }
         const type = response.headers.get('content-type') || '';
         if (kind === 'api' && !type.includes('json')) return response;

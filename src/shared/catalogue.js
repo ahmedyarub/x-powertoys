@@ -73,6 +73,16 @@
                 'It follows through the post\'s own menu and goes once X confirms the follow.',
         },
         {
+            id: 'postActionButtons', group: 'timeline', name: 'Block and Not interested buttons',
+            description: 'Shows Not interested and Block buttons next to the author\'s name on every post but your own. ' +
+                'They act through the post\'s own menu, and change only once X confirms.',
+            options: [
+                bool('showNotInterested', 'Show Not interested', true),
+                bool('showBlock', 'Show Block', true),
+                bool('confirmBlock', 'Ask before blocking', true, 'X\'s own "Block @user?" question. Off blocks at the first press.'),
+            ],
+        },
+        {
             id: 'inlineReplies', group: 'timeline', name: 'Inline replies',
             description: 'Adds Show replies under posts, which opens the replies right below the post instead of on ' +
                 'its own page, with Load more and Expand all.',

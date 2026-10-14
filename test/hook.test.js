@@ -140,3 +140,45 @@ test('posts report the confirmed follow state and whether they are your own', ()
     reply = env.messages.find((message) => message.requestId === 'b');
     assert.equal(reply.post.followState, 'following');
 });
+
+function post(env, url, body, status, response) {
+    const xhr = new env.context.XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.send(body);
+    xhr.respond(status, response);
+}
+
+test('a block is reported once the server confirms it, and shows on the author of posts', () => {
+    const env = page();
+    const timeline = new env.context.XMLHttpRequest();
+    timeline.open('GET', 'https://x.com/i/api/graphql/q/HomeTimeline');
+    timeline.send();
+    timeline.readyState = 4;
+    timeline.body = JSON.stringify({ data: { post: env.post('9', true) } });
+    void timeline.responseText;
+
+    post(env, 'https://x.com/i/api/1.1/blocks/create.json', 'user_id=5', 403, '{"errors":[]}');
+    assert.deepEqual(env.messages.filter((m) => m.type === 'block'), [], 'a failed block is not reported');
+
+    post(env, 'https://x.com/i/api/1.1/blocks/create.json', 'user_id=5', 200, JSON.stringify({ id_str: '5' }));
+    assert.deepEqual(env.messages.filter((m) => m.type === 'block'), [{ to: 'ui', type: 'block', userId: '5', state: 'blocked' }]);
+
+    env.deliver({ to: 'page', type: 'getPost', id: '9', requestId: 'c' });
+    const reply = env.messages.find((message) => message.requestId === 'c');
+    assert.equal(reply.post.author.blocking, true);
+    assert.equal(reply.post.followState, 'none', 'a block ends the follow');
+
+    post(env, 'https://x.com/i/api/1.1/blocks/destroy.json', 'user_id=5', 200, JSON.stringify({ id_str: '5' }));
+    assert.equal(env.messages.filter((m) => m.type === 'block').pop().state, 'none');
+});
+
+test('Not interested feedback is reported once the server confirms it, an Undo as such', () => {
+    const env = page();
+    const url = 'https://x.com/i/api/graphql/q/timelinesFeedback';
+    const body = (undo) => JSON.stringify({ variables: { encoded_feedback_request: 'opaque', undo }, queryId: 'q' });
+
+    post(env, url, body(false), 500, '{}');
+    post(env, url, body(false), 200, '{"data":{}}');
+    post(env, url, body(true), 200, '{"data":{}}');
+    assert.deepEqual(env.messages.filter((m) => m.type === 'feedback').map((m) => m.undo), [false, true]);
+});

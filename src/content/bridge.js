@@ -11,7 +11,7 @@
     const catalogue = globalThis.XPT_CATALOGUE;
     const SETTINGS_KEY = 'xpt:settings';
     const listeners = new Set();
-    const followListeners = new Set();
+    const outcomeListeners = new Map();
     const reloadListeners = new Set();
     const pending = new Map();
     let requestCounter = 0;
@@ -30,9 +30,13 @@
             reloadListeners.add(listener);
         },
 
-        /** Called with (userId, state) whenever the server confirms a follow, unfollow or cancel. */
-        onFollow(listener) {
-            followListeners.add(listener);
+        /**
+         * Called with the hook's message whenever the server confirms an action of a kind:
+         * 'follow' and 'block' ({ userId, state }), or 'feedback' ({ undo }).
+         */
+        onOutcome(type, listener) {
+            if (!outcomeListeners.has(type)) outcomeListeners.set(type, new Set());
+            outcomeListeners.get(type).add(listener);
         },
 
         /** Saves changed options of a patch. */
@@ -130,8 +134,14 @@
             return;
         }
         if (message.to !== 'ui') return;
-        if (message.type === 'follow') {
-            for (const listener of followListeners) listener(String(message.userId), String(message.state));
+        if (outcomeListeners.has(message.type)) {
+            for (const listener of outcomeListeners.get(message.type)) {
+                try {
+                    listener(message);
+                } catch (error) {
+                    console.warn('[X Power Toys] Outcome listener failed', error);
+                }
+            }
             return;
         }
         if (message.type !== 'reply') return;

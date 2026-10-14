@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "X Power Toys",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "The morphe X patches for x.com: remove ads, feed filters, downloads, undo posts, link fixes and more.",
     "browser_specific_settings": {
         "gecko": {
