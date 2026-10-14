@@ -8,8 +8,8 @@ function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         await browser.storage.local.set({ settings });
-        document.getElementById('status').textContent = 'Saved. Reload x.com to apply.';
-    }, 250);
+        document.getElementById('status').textContent = 'Saved. Open x.com tabs refresh to show it.';
+    }, 800);
 }
 
 function bind() {

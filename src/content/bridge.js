@@ -12,6 +12,7 @@
     const SETTINGS_KEY = 'xpt:settings';
     const listeners = new Set();
     const followListeners = new Set();
+    const reloadListeners = new Set();
     const pending = new Map();
     let requestCounter = 0;
 
@@ -22,6 +23,11 @@
         opt: (id, key) => catalogue.opt(XPT.settings, id, key),
         onChange(listener) {
             listeners.add(listener);
+        },
+
+        /** Called when a settings change needs the page loaded anew to show. */
+        onNeedsReload(listener) {
+            reloadListeners.add(listener);
         },
 
         /** Called with (userId, state) whenever the server confirms a follow, unfollow or cancel. */
@@ -71,12 +77,22 @@
         window.postMessage('xpt:' + JSON.stringify({ to: 'page', ...message }), location.origin);
     }
 
+    /**
+     * The page hook read its settings from the mirror when the page loaded; when what it read
+     * differs in a way only a new load picks up, listeners hear of it.
+     */
     function apply(stored) {
+        const before = XPT.settings;
         XPT.settings = catalogue.merge(stored);
+        let mirrored = true;
         try {
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(XPT.settings));
         } catch {
             // Storage is full or blocked; the hook uses the defaults on the next load.
+            mirrored = false;
+        }
+        if (mirrored && catalogue.needsReload(before, XPT.settings)) {
+            for (const listener of reloadListeners) listener();
         }
         send({ type: 'settings', settings: XPT.settings });
         for (const listener of listeners) {

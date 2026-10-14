@@ -8,8 +8,9 @@
 
     const XPT = globalThis.XPT;
 
-    const NAV = ':is(nav[role="navigation"], [data-testid="BottomBar"])';
-    const NAV_OR_MENU = ':is(nav[role="navigation"], [data-testid="BottomBar"], [role="menu"])';
+    // The side navigation and the bottom bar. Not any nav: photo carousels in posts are navs too.
+    const NAV = ':is(header[role="banner"] nav[role="navigation"], [data-testid="BottomBar"])';
+    const NAV_OR_MENU = ':is(header[role="banner"] nav[role="navigation"], [data-testid="BottomBar"], [role="menu"])';
     const ACTION_BAR = 'article [role="group"]';
     const tab = (link) => `[role="tablist"] [role="presentation"]:has(> ${link})`;
 
@@ -81,7 +82,7 @@
         hideBanner: ['[data-testid="primaryColumn"] [role="button"]:has([data-testid="pillLabel"])'],
         hideCommunityNotes: ['[data-testid="birdwatch-pivot"]'],
         hideFab: ['[data-testid="FloatingActionButtons_Tweet_Button"]', '[data-testid^="FloatingActionButtons"]'],
-        hideNavBadges: [`${NAV} a div[aria-label]`, `${NAV} a [aria-live="polite"]`],
+        hideNavBadges: [`${NAV} a[data-testid^="AppTabBar_"] div[aria-label]`, `${NAV} a[data-testid^="AppTabBar_"] [aria-live="polite"]`],
     };
 
     function exploreRules() {

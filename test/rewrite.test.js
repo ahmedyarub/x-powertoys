@@ -133,6 +133,25 @@ test('Feed filters look through retweets and visibility wrappers', () => {
     assert.deepEqual(entriesOf(run(HOME, json, settingsWith({ feedFilters: { mediaOnly: true } }))), ['tweet-10']);
 });
 
+test('posts in a visibility wrapper, which carry no __typename, are filtered and rewritten', () => {
+    const inner = () => {
+        const post = tweet('30', { text: 'followed', following: true, media: [{ ...photo, sensitive_media_warning: {} }] });
+        delete post.__typename;
+        return post;
+    };
+    const wrapped = () => ({ __typename: 'TweetWithVisibilityResults', limitedActionResults: {}, tweet: inner() });
+
+    const filtered = run(HOME, timeline([item('tweet-30', wrapped()), item('tweet-1', tweet('1'))]), settingsWith({ feedFilters: { hideFollowed: true } }));
+    assert.deepEqual(entriesOf(filtered), ['tweet-1']);
+
+    const seen = [];
+    const out = run(HOME, timeline([item('tweet-30', wrapped())]), settingsWith({ showSensitiveMedia: true }), { add: (p) => seen.push(p.rest_id), link() {} });
+    const post = out.data.home.home_timeline_urt.instructions[0].entries[0].content.itemContent.tweet_results.result.tweet;
+    assert.equal(post.legacy.extended_entities.media[0].sensitive_media_warning, undefined);
+    assert.equal(post.__typename, undefined, 'the wrapper post is not given a type it did not have');
+    assert.deepEqual(seen, ['30']);
+});
+
 test('Feed filters hide suggestion modules and keep others', () => {
     const module = (entryId) => ({
         entryId,
@@ -404,6 +423,24 @@ test('shared links: legacy form and custom domain', () => {
 test('responses that are not JSON pass through untouched', () => {
     assert.equal(R.transformResponse(HOME, '', settingsWith({ removeAds: true })), '');
     assert.equal(R.transformResponse(HOME, 'not json', settingsWith({ removeAds: true })), 'not json');
+});
+
+test('only changes to what x.com downloads need the page refreshed', () => {
+    const before = catalogue.defaults();
+    const change = (edit) => {
+        const after = catalogue.merge(JSON.parse(JSON.stringify(before)));
+        edit(after);
+        return catalogue.needsReload(before, after);
+    };
+
+    assert.equal(change(() => {}), false);
+    assert.equal(change((s) => { s.options.feedFilters.hideFollowed = true; }), true);
+    assert.equal(change((s) => { s.options.filterByKeyword.keywords = ['x']; }), true);
+    assert.equal(change((s) => { s.patches.removeAds = false; }), true);
+    assert.equal(change((s) => { s.patches.unlockPremium = false; }), true);
+    // Hiding parts of the page applies at once.
+    assert.equal(change((s) => { s.options.inlineActionBar.hideViews = true; }), false);
+    assert.equal(change((s) => { s.patches.followButton = false; }), false);
 });
 
 test('settings merge drops unknown and invalid values', () => {

@@ -198,10 +198,13 @@
                 changed = true;
             }
 
-            if (isTweet(object)) {
-                store?.add?.(object);
-                changed = transformTweet(object, settings) || changed;
-                if (object.card?.legacy) cards.push(object.card.legacy);
+            // A typed post is met on its own; an untyped one only through its wrapper.
+            const wrapped = wrappedTweet(object);
+            const post = isTweet(object) ? object : wrapped && wrapped.__typename === undefined ? wrapped : null;
+            if (post) {
+                store?.add?.(post);
+                changed = transformTweet(post, settings) || changed;
+                if (post.card?.legacy) cards.push(post.card.legacy);
             }
 
             if (typeof object.url === 'string' && object.url.startsWith('https://t.co/') &&
@@ -344,10 +347,18 @@
         return object.__typename === 'Tweet' && typeof object.rest_id === 'string' && object.legacy && typeof object.legacy === 'object';
     }
 
+    /** The post inside a visibility wrapper, which comes without a __typename of its own. */
+    function wrappedTweet(object) {
+        if (object?.__typename !== 'TweetWithVisibilityResults') return null;
+        const inner = object.tweet;
+        if (!inner || typeof inner !== 'object' || typeof inner.rest_id !== 'string' || !inner.legacy || typeof inner.legacy !== 'object') return null;
+        return inner.__typename === undefined || inner.__typename === 'Tweet' ? inner : null;
+    }
+
     /** A post from a tweet result, through its visibility wrapper. Tombstones and the like are null. */
     function unwrapTweet(result) {
         if (!result || typeof result !== 'object') return null;
-        if (result.__typename === 'TweetWithVisibilityResults') return unwrapTweet(result.tweet);
+        if (result.__typename === 'TweetWithVisibilityResults') return wrappedTweet(result);
         return isTweet(result) ? result : null;
     }
 

@@ -503,7 +503,7 @@
                     primary: true,
                     action: async () => {
                         await XPT.saveOptions('filterByKeyword', { keywords: lines(area.value) });
-                        toast('Saved. Refresh to apply.');
+                        toast('Saved. Refreshing the feed…');
                     },
                 },
             ],
@@ -548,7 +548,7 @@
                             hideSuggested: toggles.hideSuggested.checked,
                             includeKeywords: lines(include.value),
                         });
-                        toast('Saved. Refresh to apply.');
+                        toast('Saved. Refreshing the feed…');
                     },
                 },
             ],
@@ -824,6 +824,75 @@
     }
 
     window.addEventListener('scroll', () => savePosition(), { passive: true });
+
+    // endregion
+
+    // region Refresh on settings changes
+
+    /**
+     * Filters and other rewrites apply to what x.com downloads, so a change to one is shown by
+     * loading the page anew. Changes come in bursts while settings are edited; the page waits for
+     * them to settle, for the tab to be in view, and never drops text being written.
+     */
+    let refreshTimer = null;
+
+    XPT.onNeedsReload(() => {
+        console.debug('[X Power Toys] A settings change needs the page refreshed');
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(refreshWhenShown, 1500);
+    });
+
+    let waitingForView = false;
+    function refreshWhenShown() {
+        if (!document.hidden) return refreshPage();
+        if (waitingForView) return;
+        waitingForView = true;
+        console.debug('[X Power Toys] Refreshing once the tab is in view');
+        document.addEventListener('visibilitychange', function onShown() {
+            if (document.hidden) return;
+            document.removeEventListener('visibilitychange', onShown);
+            waitingForView = false;
+            refreshPage();
+        });
+    }
+
+    /** Text typed into a composer or any other field; placeholders and labels do not count. */
+    function hasUnsentText() {
+        const editable = [...document.querySelectorAll('[contenteditable="true"], [contenteditable=""]')]
+            .some((field) => field.textContent.trim());
+        const typed = [...document.querySelectorAll('textarea, input[type="text"]:not([data-testid="SearchBox_Search_Input"])')]
+            .some((field) => field.value.trim());
+        return editable || typed;
+    }
+
+    function refreshPage() {
+        if (!hasUnsentText()) {
+            console.debug('[X Power Toys] Refreshing the page for the new settings');
+            location.reload();
+            return;
+        }
+        console.debug('[X Power Toys] Refresh postponed: there is unsent text');
+
+        const { host, shadow } = overlayHost();
+        const box = document.createElement('div');
+        box.className = 'toast';
+        box.setAttribute('role', 'status');
+        box.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        const label = document.createElement('span');
+        label.textContent = 'Settings changed. Refresh to apply them once your post is sent.';
+        const refresh = document.createElement('button');
+        refresh.type = 'button';
+        refresh.className = 'primary';
+        refresh.textContent = 'Refresh';
+        refresh.addEventListener('click', () => location.reload());
+        const later = document.createElement('button');
+        later.type = 'button';
+        later.className = 'secondary';
+        later.textContent = 'Later';
+        later.addEventListener('click', () => host.remove());
+        box.append(label, refresh, later);
+        shadow.appendChild(box);
+    }
 
     // endregion
 

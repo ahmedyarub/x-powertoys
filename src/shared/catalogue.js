@@ -303,7 +303,25 @@
         // endregion
     ];
 
+    /**
+     * Patches that work on what x.com downloads (timelines and the boot feature switches). What the
+     * page already holds is not rewritten, so changing one of these needs the page loaded anew.
+     */
+    const NEEDS_RELOAD = new Set([
+        'removeAds', 'filterByKeyword', 'feedFilters', 'showSensitiveMedia', 'showPollResults', 'forceHdVideos',
+        'forceTranslate', 'exploreTabs', 'homeTabs', 'hideCommunityNotes', 'noShortenedUrl', 'removePremiumUpsell',
+        'unlockPremium', 'hookFeatureFlag',
+    ]);
+    for (const patch of PATCHES) patch.needsReload = NEEDS_RELOAD.has(patch.id);
+
     const BY_ID = Object.fromEntries(PATCHES.map((patch) => [patch.id, patch]));
+
+    /** If going from one settings object to another changes a patch that needs the page loaded anew. */
+    function needsReload(before, after) {
+        return PATCHES.some((patch) => patch.needsReload && (
+            before?.patches?.[patch.id] !== after?.patches?.[patch.id] ||
+            JSON.stringify(before?.options?.[patch.id] ?? {}) !== JSON.stringify(after?.options?.[patch.id] ?? {})));
+    }
 
     function defaults() {
         const settings = { patches: {}, options: {} };
@@ -368,5 +386,5 @@
         return on(settings, id) ? opt(settings, id, key) : undefined;
     }
 
-    root.XPT_CATALOGUE = { GROUPS, PATCHES, BY_ID, defaults, merge, on, opt, onOpt };
+    root.XPT_CATALOGUE = { GROUPS, PATCHES, BY_ID, defaults, merge, on, opt, onOpt, needsReload };
 })(typeof module !== 'undefined' && module.exports ? module.exports : globalThis);

@@ -13,7 +13,7 @@ function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         await browser.storage.local.set({ settings });
-        status('save-status', 'Saved. Reload x.com to apply.');
+        status('save-status', 'Saved. x.com refreshes by itself when a change needs it.');
     }, 250);
 }
 
@@ -207,7 +207,7 @@ document.getElementById('reset').addEventListener('click', async () => {
     settings = catalogue.defaults();
     await browser.storage.local.set({ settings });
     render();
-    status('save-status', 'Reset to defaults. Reload x.com to apply.');
+    status('save-status', 'Reset to defaults.');
 });
 
 // endregion
