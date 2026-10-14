@@ -122,6 +122,46 @@
             .xpt-follow-light { background: #0f1419; color: #ffffff; }
             .xpt-follow:hover { opacity: 0.85; }
             .xpt-follow:disabled { opacity: 0.5; cursor: progress; }
+            .xpt-replies { --xpt-text: #0f1419; --xpt-muted: #536471; --xpt-line: #eff3f4; --xpt-hover: rgba(0, 0, 0, 0.03);
+                padding: 0 16px 10px 68px; color: var(--xpt-text); border-bottom: 1px solid var(--xpt-line);
+                font: 15px/20px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; cursor: default; }
+            .xpt-replies.xpt-theme-dim { --xpt-text: #f7f9f9; --xpt-muted: #8b98a5; --xpt-line: #38444d; --xpt-hover: rgba(255, 255, 255, 0.03); }
+            .xpt-replies.xpt-theme-dark { --xpt-text: #e7e9ea; --xpt-muted: #71767b; --xpt-line: #2f3336; --xpt-hover: rgba(255, 255, 255, 0.03); }
+            .xpt-replies [hidden] { display: none !important; }
+            .xpt-replies-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+            .xpt-replies-button { padding: 4px 0; border: 0; background: none; color: rgb(29, 155, 240); font: inherit;
+                font-size: 14px; cursor: pointer; }
+            .xpt-replies-button:hover { text-decoration: underline; }
+            .xpt-replies-status { font-size: 13px; }
+            .xpt-replies-status.xpt-error { color: rgb(244, 33, 46); }
+            .xpt-muted { color: var(--xpt-muted); text-decoration: none; }
+            .xpt-thread { position: relative; padding: 2px 0; border-top: 1px solid var(--xpt-line); }
+            .xpt-thread .xpt-reply + .xpt-reply::before { content: ""; position: absolute; left: 15px; top: -6px; height: 8px;
+                border-left: 2px solid var(--xpt-line); }
+            .xpt-reply { position: relative; display: flex; gap: 10px; padding: 8px 4px; border-radius: 8px; cursor: pointer; }
+            .xpt-reply:hover { background: var(--xpt-hover); }
+            .xpt-reply-avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--xpt-line); }
+            .xpt-reply-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .xpt-reply-body { min-width: 0; flex: 1; }
+            .xpt-reply-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+            .xpt-reply-name { color: var(--xpt-text); font-weight: 700; text-decoration: none; }
+            .xpt-reply-name:hover, .xpt-reply-time:hover { text-decoration: underline; }
+            .xpt-reply-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+            .xpt-link { color: rgb(29, 155, 240); text-decoration: none; }
+            .xpt-link:hover { text-decoration: underline; }
+            .xpt-reply-media { display: grid; gap: 2px; margin-top: 8px; max-width: 420px; border-radius: 12px; overflow: hidden;
+                border: 1px solid var(--xpt-line); }
+            .xpt-media-2, .xpt-media-3, .xpt-media-4 { grid-template-columns: 1fr 1fr; }
+            .xpt-reply-tile { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--xpt-line); }
+            .xpt-media-1 .xpt-reply-tile { aspect-ratio: auto; max-height: 360px; }
+            .xpt-reply-tile img { width: 100%; height: 100%; max-height: 360px; object-fit: cover; display: block; }
+            .xpt-reply-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px;
+                border-radius: 50%; background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 16px; line-height: 40px; text-align: center; }
+            .xpt-reply-stats { display: flex; gap: 28px; margin-top: 6px; font-size: 13px; }
+            .xpt-reply-stat { display: inline-flex; align-items: center; gap: 4px; min-width: 40px; }
+            .xpt-reply-stat svg { width: 15px; height: 15px; fill: currentColor; }
+            .xpt-thread-more { margin-left: 46px; }
+            .xpt-replies-empty { padding: 8px 0; font-size: 14px; }
             /* While the Follow button drives the post menu, the menu stays out of sight. */
             html.xpt-quiet #layers [role="menu"] { opacity: 0 !important; }
         `);

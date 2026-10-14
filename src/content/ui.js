@@ -920,7 +920,18 @@
         decorateFollowButtons();
         keepVisibleHomeTab();
         restorePosition();
+        for (const scanner of XPT.scanners) {
+            try {
+                scanner();
+            } catch (error) {
+                console.warn('[X Power Toys] Scan failed', error);
+            }
+        }
     }
+
+    // What the other content scripts share: helpers, and scanners run with every page change.
+    XPT.ui = { postIdOf, pagePostId, toast, isDark, svgIcon, schedule: () => schedule() };
+    XPT.scanners = [];
 
     // A timer rather than an animation frame: frames do not run in a tab opened in the background.
     function schedule() {

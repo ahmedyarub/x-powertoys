@@ -274,6 +274,54 @@ test('summaries read like the post: unescaped, links expanded, no mentions or me
     assert.equal(R.summarize(long).text, 'the whole long post');
 });
 
+test('conversations: reply threads, their Show more, further pages; not the post itself', () => {
+    const thread = (id, posts, cursor) => ({
+        entryId: `conversationthread-${id}`,
+        content: {
+            entryType: 'TimelineTimelineModule',
+            items: [
+                ...posts.map((post) => ({ entryId: `x-${post.rest_id}`, item: { itemContent: { __typename: 'TimelineTweet', tweet_results: { result: post } } } })),
+                ...(cursor ? [{ entryId: 'c', item: { itemContent: { __typename: 'TimelineTimelineCursor', cursorType: 'ShowMore', value: cursor } } }] : []),
+            ],
+        },
+    });
+    const json = {
+        data: {
+            threaded_conversation_with_injections_v2: {
+                instructions: [
+                    { type: 'TimelineClearCache' },
+                    {
+                        type: 'TimelineAddEntries',
+                        entries: [
+                            item('tweet-1', tweet('1')),
+                            thread('a', [tweet('2'), tweet('3')], 'more-a'),
+                            thread('b', [{ __typename: 'TweetWithVisibilityResults', tweet: { ...tweet('4'), __typename: undefined } }]),
+                            { entryId: 'tweetdetailrelatedtweets-1', content: { entryType: 'TimelineTimelineModule', items: [] } },
+                            { entryId: 'cursor-showmorethreads-1', content: { entryType: 'TimelineTimelineCursor', cursorType: 'ShowMoreThreads', value: 'hidden' } },
+                            { entryId: 'cursor-bottom-1', content: { entryType: 'TimelineTimelineCursor', cursorType: 'Bottom', value: 'page-2' } },
+                            { entryId: 'cursor-top-1', content: { entryType: 'TimelineTimelineCursor', cursorType: 'Top', value: 'top' } },
+                        ],
+                    },
+                ],
+            },
+        },
+    };
+    const parsed = R.parseConversation(json, '1');
+    assert.deepEqual(parsed.threads.map((t) => [t.id, t.posts.map((p) => p.rest_id), t.cursor]),
+        [['conversationthread-a', ['2', '3'], 'more-a'], ['conversationthread-b', ['4'], null]]);
+    assert.deepEqual(parsed.next, [{ cursor: 'page-2', type: 'Bottom' }, { cursor: 'hidden', type: 'ShowMoreThreads' }]);
+
+    const more = R.parseConversation({
+        data: { threaded_conversation_with_injections_v2: { instructions: [{
+            type: 'TimelineAddToModule',
+            moduleEntryId: 'conversationthread-a',
+            moduleItems: [{ entryId: 'x', item: { itemContent: { tweet_results: { result: tweet('5') } } } }],
+        }] } },
+    }, '1');
+    assert.deepEqual(more.additions.map((a) => [a.id, a.posts.map((p) => p.rest_id), a.cursor]), [['conversationthread-a', ['5'], null]]);
+    assert.deepEqual(R.parseConversation({}, '1'), { threads: [], additions: [], next: [] });
+});
+
 test('summaries carry the author and whether you follow them', () => {
     assert.deepEqual(R.summarize(tweet('1')).author, { id: '1', following: false, followRequestSent: false, blocking: false, blockedBy: false });
     assert.equal(R.summarize(tweet('2', { following: true })).author.following, true);
@@ -453,5 +501,5 @@ test('settings merge drops unknown and invalid values', () => {
     assert.equal(merged.options.undoPosts.seconds, 10);
     assert.equal(merged.options.replySort.sort, 'Likes');
     assert.deepEqual(merged.options.filterByKeyword.keywords, []);
-    assert.equal(catalogue.PATCHES.length, 42);
+    assert.equal(catalogue.PATCHES.length, 43);
 });

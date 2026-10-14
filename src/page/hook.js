@@ -117,19 +117,126 @@
             settings = catalogue.merge(message.settings);
         } else if (message.type === 'getPost') {
             const post = posts.get(String(message.id));
-            if (!post) {
-                reply(message, { post: null });
-            } else {
-                const summary = R.summarize(post);
-                summary.followState = followState(summary.author);
-                summary.isViewer = summary.author.id !== '' && summary.author.id === viewerId();
-                reply(message, { post: summary, raw: message.raw ? post : undefined });
-            }
+            reply(message, post ? { post: describe(post), raw: message.raw ? post : undefined } : { post: null });
+        } else if (message.type === 'getConversation') {
+            loadConversation(String(message.id), message.cursor ? String(message.cursor) : null)
+                .then((conversation) => reply(message, { conversation }))
+                .catch((error) => reply(message, { error: error?.message || String(error) }));
         }
     });
 
+    /** A post's summary with what only the page knows: the follow state and if it is your own. */
+    function describe(post) {
+        const summary = R.summarize(post);
+        summary.followState = followState(summary.author);
+        summary.isViewer = summary.author.id !== '' && summary.author.id === viewerId();
+        return summary;
+    }
+
     function reply(message, payload) {
         window.postMessage('xpt:' + JSON.stringify({ to: 'ui', type: 'reply', requestId: message.requestId, ...payload }), location.origin);
+    }
+
+    // endregion
+
+    // region Conversations
+
+    /**
+     * How the site asks for a conversation, taken from its own TweetDetail requests: the query
+     * id, features, field toggles and variables. Until it has made one, they come from its script.
+     */
+    let detailRequest = null;
+    /** The headers the site sends its API: its bearer token and client details. */
+    const apiHeaders = {};
+    const KEPT_HEADERS = ['authorization', 'x-twitter-auth-type', 'x-twitter-active-user', 'x-twitter-client-language'];
+
+    function rememberDetailRequest(url) {
+        const u = new URL(url, location.href);
+        const queryId = u.pathname.split('/').slice(-2)[0];
+        let variables = {};
+        try {
+            variables = JSON.parse(u.searchParams.get('variables') || '{}');
+        } catch {
+            // Keep the defaults below.
+        }
+        detailRequest = {
+            queryId,
+            features: u.searchParams.get('features') || '{}',
+            fieldToggles: u.searchParams.get('fieldToggles') || '{}',
+            variables,
+        };
+    }
+
+    async function detailRequestFromScript() {
+        const source = [...document.scripts].map((script) => script.src).find((src) => /\/client-web\/main\.[\w.]+\.js$/.test(src));
+        if (!source) throw new Error('Open any post once, then try again');
+
+        const script = await (await nativeFetch.call(window, source)).text();
+        const at = script.indexOf('operationName:"TweetDetail"');
+        const queryId = script.slice(Math.max(0, at - 80), at).match(/queryId:"([^"]+)"/)?.[1];
+        if (at < 0 || !queryId) throw new Error('Open any post once, then try again');
+
+        const block = script.slice(at, at + 4000);
+        const list = (name) => ((block.match(new RegExp(`${name}:\\[([^\\]]*)\\]`)) || [])[1] || '')
+            .split(',').map((item) => item.replace(/"/g, '').trim()).filter(Boolean);
+        const config = initialState?.featureSwitch?.user?.config || initialState?.featureSwitch?.defaultConfig || {};
+        const features = Object.fromEntries(list('featureSwitches').map((key) => [key, config[key]?.value === true]));
+        const fieldToggles = Object.fromEntries(list('fieldToggles').map((key) => [key, false]));
+
+        if (!apiHeaders.authorization) {
+            const bearer = script.match(/"(AAAAAAAAAAAAAAAAAAAAA[^"]+)"/)?.[1];
+            if (bearer) apiHeaders.authorization = `Bearer ${bearer}`;
+        }
+        return { queryId, features: JSON.stringify(features), fieldToggles: JSON.stringify(fieldToggles), variables: {} };
+    }
+
+    /** One page of a post's replies, through the same rewriting as the site's own requests. */
+    async function loadConversation(id, cursor) {
+        const request = detailRequest || await detailRequestFromScript();
+        const variables = {
+            with_rux_injections: false,
+            rankingMode: 'Relevance',
+            includePromotedContent: true,
+            withCommunity: true,
+            withQuickPromoteEligibilityTweetFields: true,
+            withBirdwatchNotes: true,
+            withVoice: true,
+            ...request.variables,
+            focalTweetId: id,
+            referrer: 'tweet',
+        };
+        delete variables.controller_data;
+        if (cursor) variables.cursor = cursor;
+        else delete variables.cursor;
+
+        const url = `https://${location.host}/i/api/graphql/${request.queryId}/TweetDetail?` + new URLSearchParams({
+            variables: JSON.stringify(variables),
+            features: request.features,
+            fieldToggles: request.fieldToggles,
+        });
+
+        const text = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.withCredentials = true;
+            for (const [name, value] of Object.entries(apiHeaders)) xhr.setRequestHeader(name, value);
+            const csrf = (document.cookie.match(/(?:^|;\s*)ct0=([^;]+)/) || [])[1];
+            if (csrf) xhr.setRequestHeader('x-csrf-token', csrf);
+            xhr.onload = () => {
+                if (xhr.status === 200) resolve(xhr.responseText);
+                else if (xhr.status === 429) reject(new Error('X is limiting requests; try again in a few minutes'));
+                else reject(new Error(`X answered ${xhr.status}`));
+            };
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.send();
+        });
+
+        const parsed = R.parseConversation(JSON.parse(text), id);
+        return {
+            threads: parsed.threads.map((thread) => ({ id: thread.id, cursor: thread.cursor, posts: thread.posts.map(describe) })),
+            additions: parsed.additions.map((thread) => ({ id: thread.id, cursor: thread.cursor, posts: thread.posts.map(describe) })),
+            next: parsed.next,
+        };
     }
 
     // endregion
@@ -214,9 +321,25 @@
     xhrProto.open = function (method, url, ...rest) {
         const info = { method: String(method).toUpperCase(), url: String(url) };
         info.kind = R.classify(info.url);
-        if (info.kind === 'api') info.url = rewriteUrl(info.url);
+        if (info.kind === 'api') {
+            if (R.operation(info.url) === 'TweetDetail') {
+                try {
+                    rememberDetailRequest(info.url);
+                } catch {
+                    // An odd URL; the script is read instead when replies are wanted.
+                }
+            }
+            info.url = rewriteUrl(info.url);
+        }
         requests.set(this, info);
         return nativeOpen.call(this, method, info.url, ...rest);
+    };
+
+    const nativeSetRequestHeader = xhrProto.setRequestHeader;
+    xhrProto.setRequestHeader = function (name, value) {
+        const key = String(name).toLowerCase();
+        if (requests.get(this)?.kind === 'api' && KEPT_HEADERS.includes(key)) apiHeaders[key] = String(value);
+        return nativeSetRequestHeader.call(this, name, value);
     };
 
     xhrProto.send = function (body) {

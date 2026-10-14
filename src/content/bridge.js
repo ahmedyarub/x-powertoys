@@ -59,6 +59,22 @@
             });
         },
 
+        /** One page of a post's replies, or the next page with a cursor: { conversation } or { error }. */
+        getConversation(id, cursor = null) {
+            const requestId = `${Date.now()}-${++requestCounter}`;
+            return new Promise((resolve) => {
+                const timer = setTimeout(() => {
+                    pending.delete(requestId);
+                    resolve({ error: 'X took too long to answer' });
+                }, 20000);
+                pending.set(requestId, (payload) => {
+                    clearTimeout(timer);
+                    resolve(payload);
+                });
+                send({ type: 'getConversation', id, cursor, requestId });
+            });
+        },
+
         /** Sends a message to the background. */
         background(message) {
             return browser.runtime.sendMessage(message);
@@ -123,7 +139,7 @@
         const resolve = pending.get(message.requestId);
         if (!resolve) return;
         pending.delete(message.requestId);
-        resolve({ post: message.post || null, raw: message.raw });
+        resolve({ post: message.post || null, raw: message.raw, conversation: message.conversation, error: message.error });
     });
 
     browser.storage.local.get('settings').then(({ settings }) => apply(settings));

@@ -517,6 +517,9 @@
             },
             text: readableText(post),
             createdAt: post.legacy?.created_at || '',
+            replyCount: post.legacy?.reply_count || 0,
+            retweetCount: post.legacy?.retweet_count || 0,
+            likeCount: post.legacy?.favorite_count || 0,
             media: mediaOf(post),
             quotedId: unwrapTweet(post.quoted_status_result?.result)?.rest_id || null,
             retweetedId: original?.rest_id || null,
@@ -548,6 +551,63 @@
             }
         }
         return media;
+    }
+
+    // endregion
+
+    // region Conversations
+
+    const NEXT_CURSORS = new Set(['Bottom', 'ShowMoreThreads', 'ShowMoreThreadsPrompt']);
+
+    /**
+     * The replies in a TweetDetail response, for showing them under a post: reply threads in
+     * order, each with the cursor that loads more of it, posts added to threads already shown,
+     * and the cursors of further pages. Ancestors, the post itself, related posts and the like
+     * are left out.
+     */
+    function parseConversation(json, focalId) {
+        const result = { threads: [], additions: [], next: [] };
+        const instructions = json?.data?.threaded_conversation_with_injections_v2?.instructions;
+        if (!Array.isArray(instructions)) return result;
+
+        const readItems = (items) => {
+            const posts = [];
+            let cursor = null;
+            for (const item of items || []) {
+                const content = item?.item?.itemContent;
+                if (content?.__typename === 'TimelineTimelineCursor' || content?.itemType === 'TimelineTimelineCursor') {
+                    if (content.value) cursor = content.value;
+                    continue;
+                }
+                const post = unwrapTweet(content?.tweet_results?.result);
+                if (post && post.rest_id !== focalId) posts.push(post);
+            }
+            return { posts, cursor };
+        };
+
+        for (const instruction of instructions) {
+            if (instruction?.type === 'TimelineAddToModule' && instruction.moduleEntryId) {
+                result.additions.push({ id: instruction.moduleEntryId, ...readItems(instruction.moduleItems) });
+                continue;
+            }
+            for (const entry of instruction?.entries || []) {
+                const content = entry?.content;
+                const id = entry?.entryId || '';
+                if (id.startsWith('conversationthread-') && Array.isArray(content?.items)) {
+                    const thread = readItems(content.items);
+                    if (thread.posts.length || thread.cursor) result.threads.push({ id, ...thread });
+                } else if (content?.cursorType && NEXT_CURSORS.has(content.cursorType) && content.value) {
+                    result.next.push({ cursor: content.value, type: content.cursorType });
+                } else if (content?.itemContent?.__typename === 'TimelineTimelineCursor' &&
+                    NEXT_CURSORS.has(content.itemContent.cursorType) && content.itemContent.value) {
+                    result.next.push({ cursor: content.itemContent.value, type: content.itemContent.cursorType });
+                }
+            }
+        }
+
+        // The next page first, then the replies the site tucks away.
+        result.next.sort((a, b) => (a.type === 'Bottom' ? 0 : 1) - (b.type === 'Bottom' ? 0 : 1));
+        return result;
     }
 
     // endregion
@@ -800,6 +860,7 @@
         transformResponse,
         transformJson,
         summarize,
+        parseConversation,
         unwrapTweet,
         keepBestVariant,
         patchInitialState,

@@ -73,6 +73,12 @@
                 'It follows through the post\'s own menu and goes once X confirms the follow.',
         },
         {
+            id: 'inlineReplies', group: 'timeline', name: 'Inline replies',
+            description: 'Adds Show replies under posts, which opens the replies right below the post instead of on ' +
+                'its own page, with Load more and Expand all.',
+            options: [int('maxReplies', 'Expand all limit', 100, 10, 2000, 'Expand all stops once this many replies are loaded.')],
+        },
+        {
             id: 'disableAutoScroll', group: 'timeline', name: 'Disable auto timeline scroll on launch',
             description: 'Opens the home timelines where you left them, instead of at the newest posts. ' +
                 'For you is regenerated on every visit, so only the other tabs are restored.',

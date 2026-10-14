@@ -18,7 +18,7 @@ Needs Firefox 128 or newer (content scripts in the page's own world).
   `xpinstall.signatures.required` set to `false`.
 
 Settings live behind the toolbar button (feed filters and keywords) and on the add-on's options page
-(everything). Most changes apply on the next load of x.com; the toolbar popup has a button for that.
+(everything). Changes that work on what x.com downloads (filters, ads, rewrites) refresh the open x.com pages on Save; the rest apply at once.
 
 ## How it works
 
@@ -86,6 +86,7 @@ client that none of this applies to.
 
 | Patch | On x.com |
 | --- | --- |
+| Inline replies | *Show replies* under every post with replies opens them right below it: no dialog, no leaving the timeline. *Load more* fetches the next page, *Show more replies* the rest of a thread, and *Expand all* keeps going until the configured limit (default 100). Replies go through the same filters as timelines; what was loaded stays when the post scrolls away and back |
 | Follow button on posts | A Follow button next to the author's name on posts by accounts you do not follow (not on your own posts, or accounts you block or that block you). It follows through the post's own menu, so x.com sends its usual request, and the button goes only once the server confirms the follow; protected accounts get a follow request. Unfollowing elsewhere brings the button back |
 
 ### Not carried over

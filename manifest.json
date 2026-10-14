@@ -63,7 +63,8 @@
                 "src/content/bridge.js",
                 "src/content/styles.js",
                 "src/content/card.js",
-                "src/content/ui.js"
+                "src/content/ui.js",
+                "src/content/replies.js"
             ],
             "run_at": "document_start"
         }
