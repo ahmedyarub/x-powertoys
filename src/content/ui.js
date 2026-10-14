@@ -746,11 +746,15 @@
                 const first = options[0];
                 const fits = first && !first.dataset.testid && !first.getAttribute('href') &&
                     !(first.innerText || '').toLowerCase().includes(handle);
+                console.debug('[X Power Toys] Not interested: menu offers', options.map((option) => option.innerText.trim()),
+                    fits ? '; picking the first' : '; the first is not it');
                 return fits ? first : null;
             }, 'Not interested');
-            if (!(await untilConfirmed(confirmed, 10000)) && button.isConnected) {
-                throw new Error('X did not confirm Not interested');
-            }
+            const cell = article.closest('[data-testid="cellInnerDiv"]');
+            const state = await untilConfirmed(confirmed, 10000);
+            console.debug('[X Power Toys] Not interested:', state ? 'X confirmed it' : 'X did not confirm it within 10 s',
+                '; the post\'s cell now reads', JSON.stringify((cell?.innerText || '(gone)').slice(0, 160)));
+            if (!state && button.isConnected) throw new Error('X did not confirm Not interested');
         } finally {
             const index = waits.feedback.indexOf(settle);
             if (index >= 0) waits.feedback.splice(index, 1);

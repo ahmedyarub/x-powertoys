@@ -85,7 +85,9 @@
 
     const FRIENDSHIP = /\/1\.1\/friendships\/(create|destroy|cancel)\.json$/;
     const BLOCK = /\/1\.1\/blocks\/(create|destroy)\.json$/;
-    const FEEDBACK = /\/graphql\/[^/]+\/timelinesFeedback$/;
+    // Not interested: a REST feedback.json, whose address the timeline itself hands out, or the
+    // GraphQL mutation the site keeps beside it.
+    const FEEDBACK = /(?:\/feedback\.json|\/graphql\/[^/]+\/timelinesFeedback)$/;
 
     /** Requests whose outcome the UI waits for: follows, blocks and Not interested feedback. */
     function isWatched(url) {
@@ -106,11 +108,14 @@
         const path = new URL(url, location.href).pathname;
 
         if (FEEDBACK.test(path)) {
-            let undo = false;
-            try {
-                undo = JSON.parse(body).variables?.undo === true;
-            } catch {
-                // A body the site did not send as JSON; taken as the feedback itself.
+            // The REST form says undo=true for an Undo; the GraphQL body says variables.undo.
+            let undo = new URL(url, location.href).searchParams.get('undo') === 'true';
+            if (typeof body === 'string') {
+                try {
+                    undo = undo || JSON.parse(body).variables?.undo === true;
+                } catch {
+                    undo = undo || new URLSearchParams(body).get('undo') === 'true';
+                }
             }
             tellUi({ type: 'feedback', undo });
             return;

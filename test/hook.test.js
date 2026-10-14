@@ -173,6 +173,13 @@ test('a block is reported once the server confirms it, and shows on the author o
 });
 
 test('Not interested feedback is reported once the server confirms it, an Undo as such', () => {
+    // The REST endpoint the site uses, its address from the timeline, a form body.
+    const restEnv = page();
+    post(restEnv, 'https://x.com/i/api/2/timeline/feedback.json', 'feedback_type=SeeFewer&undo=false', 200, '{}');
+    post(restEnv, 'https://x.com/i/api/2/timeline/feedback.json', 'feedback_type=SeeFewer&undo=true', 200, '{}');
+    post(restEnv, 'https://x.com/i/api/2/timeline/feedback.json', 'feedback_type=SeeFewer&undo=false', 429, '{}');
+    assert.deepEqual(restEnv.messages.filter((m) => m.type === 'feedback').map((m) => m.undo), [false, true]);
+
     const env = page();
     const url = 'https://x.com/i/api/graphql/q/timelinesFeedback';
     const body = (undo) => JSON.stringify({ variables: { encoded_feedback_request: 'opaque', undo }, queryId: 'q' });
