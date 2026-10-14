@@ -68,6 +68,11 @@
             description: 'Offers to translate every post, not only those the server marks translatable.',
         },
         {
+            id: 'followButton', group: 'timeline', name: 'Follow button on posts',
+            description: 'Shows a Follow button next to the author\'s name on posts by accounts you do not follow. ' +
+                'It follows through the post\'s own menu and goes once X confirms the follow.',
+        },
+        {
             id: 'disableAutoScroll', group: 'timeline', name: 'Disable auto timeline scroll on launch',
             description: 'Opens the home timelines where you left them, instead of at the newest posts. ' +
                 'For you is regenerated on every visit, so only the other tabs are restored.',

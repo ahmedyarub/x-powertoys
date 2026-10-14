@@ -497,6 +497,13 @@
             name: user?.core?.name || user?.legacy?.name || '',
             avatar: user?.avatar?.image_url || user?.legacy?.profile_image_url_https || '',
             verified: user?.is_blue_verified === true,
+            author: {
+                id: user?.rest_id || '',
+                following: user?.relationship_perspectives?.following === true || user?.legacy?.following === true,
+                followRequestSent: user?.follow_request_sent === true || user?.legacy?.follow_request_sent === true,
+                blocking: user?.relationship_perspectives?.blocking === true,
+                blockedBy: user?.relationship_perspectives?.blocked_by === true,
+            },
             text: readableText(post),
             createdAt: post.legacy?.created_at || '',
             media: mediaOf(post),

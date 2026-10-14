@@ -82,6 +82,12 @@ client that none of this applies to.
 | Import/Export login token | Settings: export the x.com session cookies as text and import them in another browser. Treat the export like a password |
 | Delete from database | Settings: clears what x.com keeps in IndexedDB and its service worker |
 
+### Added on x.com
+
+| Patch | On x.com |
+| --- | --- |
+| Follow button on posts | A Follow button next to the author's name on posts by accounts you do not follow (not on your own posts, or accounts you block or that block you). It follows through the post's own menu, so x.com sends its usual request, and the button goes only once the server confirms the follow; protected accounts get a follow request. Unfollowing elsewhere brings the button back |
+
 ### Not carried over
 
 Android side bar rows with no counterpart on x.com: Money, Sports, Offline videos, Boost. The home

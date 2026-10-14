@@ -594,6 +594,122 @@
 
     // endregion
 
+    // region Follow button
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    /** Follows in flight, by user id: resolved by the server's confirmation. */
+    const followWaits = new Map();
+
+    async function decorateFollowButtons() {
+        if (!XPT.on('followButton')) return;
+
+        for (const article of document.querySelectorAll('article[data-testid="tweet"]:not([data-xpt-follow])')) {
+            const name = article.querySelector('[data-testid="User-Name"]');
+            const id = name && postIdOf(article);
+            if (!id) continue;
+            article.dataset.xptFollow = 'pending';
+
+            XPT.getPost(id).then(({ post }) => {
+                article.dataset.xptFollow = 'done';
+                if (!post || !post.author.id) return;
+                article.dataset.xptAuthor = post.author.id;
+                if (post.isViewer || post.followState !== 'none' || post.author.blocking || post.author.blockedBy) return;
+                if (name.querySelector('.xpt-follow')) return;
+                name.firstElementChild?.after(followButton(article, post));
+            });
+        }
+    }
+
+    function followButton(article, post) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `xpt-follow ${isDark() ? 'xpt-follow-dark' : 'xpt-follow-light'}`;
+        button.dataset.xptUser = post.author.id;
+        button.textContent = 'Follow';
+        button.title = `Follow @${post.screenName}`;
+        button.setAttribute('aria-label', `Follow @${post.screenName}`);
+
+        // The post opens on a press anywhere in it; this one is the button's alone.
+        for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
+            button.addEventListener(type, (event) => event.stopPropagation());
+        }
+        button.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (button.disabled) return;
+
+            button.disabled = true;
+            try {
+                await follow(article, post);
+            } catch (error) {
+                toast(error.message, 4000);
+            } finally {
+                // Still here: the follow was not confirmed.
+                if (button.isConnected) button.disabled = false;
+            }
+        });
+        return button;
+    }
+
+    /**
+     * Follows the author through the post's own menu, so the site sends the request as it would
+     * for its own Follow option, then waits for the server to confirm it. The button goes when
+     * the confirmation arrives, not before.
+     */
+    async function follow(article, post) {
+        const confirmed = new Promise((resolve) => followWaits.set(post.author.id, resolve));
+        const caret = article.querySelector('[data-testid="caret"]');
+        if (!caret) throw new Error('This post has no menu to follow from');
+
+        const handle = `@${post.screenName}`.toLowerCase();
+        document.documentElement.classList.add('xpt-quiet');
+        try {
+            caret.click();
+            let item = null;
+            for (let tries = 0; tries < 30 && !item; tries++) {
+                await sleep(50);
+                item = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((option) =>
+                    !option.dataset.testid && !option.dataset.xptItem && !option.getAttribute('href') &&
+                    (option.innerText || '').toLowerCase().includes(handle));
+            }
+            if (!item) {
+                closeMenus();
+                throw new Error(`Could not find Follow ${'@' + post.screenName} in the post menu`);
+            }
+            item.click();
+
+            // Already followed after all: the site asks to confirm an unfollow. Say no.
+            await sleep(300);
+            const cancel = document.querySelector('[data-testid="confirmationSheetCancel"]');
+            if (cancel) {
+                cancel.click();
+                throw new Error(`You already follow @${post.screenName}`);
+            }
+        } finally {
+            document.documentElement.classList.remove('xpt-quiet');
+        }
+
+        const state = await Promise.race([confirmed, sleep(10000).then(() => null)]);
+        followWaits.delete(post.author.id);
+        if (!state) throw new Error(`X did not confirm following @${post.screenName}`);
+    }
+
+    XPT.onFollow((userId, state) => {
+        followWaits.get(userId)?.(state);
+        if (state === 'none') {
+            // Unfollowed: the posts of that account get their button back.
+            for (const article of document.querySelectorAll(`article[data-xpt-author="${CSS.escape(userId)}"]`)) {
+                delete article.dataset.xptFollow;
+            }
+            schedule();
+        } else {
+            for (const button of document.querySelectorAll(`.xpt-follow[data-xpt-user="${CSS.escape(userId)}"]`)) button.remove();
+        }
+    });
+
+    // endregion
+
     // region Home tabs
 
     function homeTabs() {
@@ -730,6 +846,7 @@
         trackPage();
         processMenus();
         decorateActionBars();
+        decorateFollowButtons();
         keepVisibleHomeTab();
         restorePosition();
     }

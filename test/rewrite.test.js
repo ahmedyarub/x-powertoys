@@ -255,6 +255,15 @@ test('summaries read like the post: unescaped, links expanded, no mentions or me
     assert.equal(R.summarize(long).text, 'the whole long post');
 });
 
+test('summaries carry the author and whether you follow them', () => {
+    assert.deepEqual(R.summarize(tweet('1')).author, { id: '1', following: false, followRequestSent: false, blocking: false, blockedBy: false });
+    assert.equal(R.summarize(tweet('2', { following: true })).author.following, true);
+
+    const requested = tweet('3');
+    requested.core.user_results.result.follow_request_sent = true;
+    assert.equal(R.summarize(requested).author.followRequestSent, true);
+});
+
 test('the store sees every post, quoted ones included', () => {
     const post = tweet('1', { extra: { quoted_status_result: { result: tweet('2') } } });
     const seen = [];
@@ -407,5 +416,5 @@ test('settings merge drops unknown and invalid values', () => {
     assert.equal(merged.options.undoPosts.seconds, 10);
     assert.equal(merged.options.replySort.sort, 'Likes');
     assert.deepEqual(merged.options.filterByKeyword.keywords, []);
-    assert.equal(catalogue.PATCHES.length, 41);
+    assert.equal(catalogue.PATCHES.length, 42);
 });

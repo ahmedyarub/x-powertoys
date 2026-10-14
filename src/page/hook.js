@@ -55,6 +55,51 @@
 
     // endregion
 
+    // region Follow state
+
+    /** Follow states the server confirmed this visit, by user id; newer than any post's copy. */
+    const confirmedFollows = new Map();
+
+    function viewerId() {
+        const match = document.cookie.match(/(?:^|;\s*)twid=([^;]+)/);
+        const value = match ? decodeURIComponent(match[1]) : '';
+        return (value.match(/u=(\d+)/) || [])[1] || null;
+    }
+
+    /** 'following', 'requested' or 'none'. */
+    function followState(author) {
+        if (confirmedFollows.has(author.id)) return confirmedFollows.get(author.id);
+        if (author.following) return 'following';
+        if (author.followRequestSent) return 'requested';
+        return 'none';
+    }
+
+    const FRIENDSHIP = /\/1\.1\/friendships\/(create|destroy|cancel)\.json$/;
+
+    /**
+     * Records the outcome of a follow, unfollow or request cancel once the server has answered,
+     * and tells the UI. Nothing is reported for a request that failed.
+     */
+    function watchFriendship(method, url, body, status, responseText) {
+        const action = method === 'POST' && (new URL(url, location.href).pathname.match(FRIENDSHIP) || [])[1];
+        if (!action || status !== 200) return;
+
+        let user = null;
+        try {
+            user = JSON.parse(responseText);
+        } catch {
+            // Fall back to the id the request named.
+        }
+        const userId = user?.id_str || (typeof body === 'string' ? new URLSearchParams(body).get('user_id') : null);
+        if (!userId) return;
+
+        const state = action === 'create' ? (user?.protected === true ? 'requested' : 'following') : 'none';
+        confirmedFollows.set(userId, state);
+        window.postMessage('xpt:' + JSON.stringify({ to: 'ui', type: 'follow', userId, state }), location.origin);
+    }
+
+    // endregion
+
     // region Messages
 
     window.addEventListener('message', (event) => {
@@ -72,7 +117,14 @@
             settings = catalogue.merge(message.settings);
         } else if (message.type === 'getPost') {
             const post = posts.get(String(message.id));
-            reply(message, post ? { post: R.summarize(post), raw: message.raw ? post : undefined } : { post: null });
+            if (!post) {
+                reply(message, { post: null });
+            } else {
+                const summary = R.summarize(post);
+                summary.followState = followState(summary.author);
+                summary.isViewer = summary.author.id !== '' && summary.author.id === viewerId();
+                reply(message, { post: summary, raw: message.raw ? post : undefined });
+            }
         }
     });
 
@@ -172,6 +224,17 @@
         if (!info?.kind) return nativeSend.call(this, body);
 
         const rewritten = rewriteBody(info.url, body);
+        if (FRIENDSHIP.test(new URL(info.url, location.href).pathname)) {
+            this.addEventListener('load', () => {
+                let text = '';
+                try {
+                    text = textDescriptor.get.call(this);
+                } catch {
+                    // A JSON or binary response type; the request body names the user.
+                }
+                watchFriendship(info.method, info.url, rewritten, this.status, text);
+            });
+        }
         if (on(settings, 'undoPosts') && isPostCreation(info.method, info.url)) {
             holdPost(rewritten).then((send) => {
                 if (send) nativeSend.call(this, rewritten);
@@ -260,6 +323,9 @@
         }
 
         const response = await nativeFetch.call(this, target, options);
+        if (kind === 'api' && FRIENDSHIP.test(new URL(url, location.href).pathname)) {
+            response.clone().text().then((text) => watchFriendship(method, url, options?.body, response.status, text)).catch(() => {});
+        }
         const type = response.headers.get('content-type') || '';
         if (kind === 'api' && !type.includes('json')) return response;
 

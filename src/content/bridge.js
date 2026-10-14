@@ -11,6 +11,7 @@
     const catalogue = globalThis.XPT_CATALOGUE;
     const SETTINGS_KEY = 'xpt:settings';
     const listeners = new Set();
+    const followListeners = new Set();
     const pending = new Map();
     let requestCounter = 0;
 
@@ -21,6 +22,11 @@
         opt: (id, key) => catalogue.opt(XPT.settings, id, key),
         onChange(listener) {
             listeners.add(listener);
+        },
+
+        /** Called with (userId, state) whenever the server confirms a follow, unfollow or cancel. */
+        onFollow(listener) {
+            followListeners.add(listener);
         },
 
         /** Saves changed options of a patch. */
@@ -91,7 +97,12 @@
         } catch {
             return;
         }
-        if (message.to !== 'ui' || message.type !== 'reply') return;
+        if (message.to !== 'ui') return;
+        if (message.type === 'follow') {
+            for (const listener of followListeners) listener(String(message.userId), String(message.state));
+            return;
+        }
+        if (message.type !== 'reply') return;
 
         const resolve = pending.get(message.requestId);
         if (!resolve) return;

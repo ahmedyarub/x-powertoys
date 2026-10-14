@@ -114,6 +114,15 @@
                 margin-left: -8px; border: 0; border-radius: 999px; background: transparent; color: rgb(113, 118, 123); cursor: pointer; }
             .xpt-action button:hover { background: rgba(29, 155, 240, 0.1); color: rgb(29, 155, 240); }
             .xpt-action svg { width: 18.75px; height: 18.75px; fill: currentColor; }
+            .xpt-follow { flex: none; align-self: center; margin: 0 6px 0 4px; padding: 0 12px; height: 24px; border: 0;
+                border-radius: 999px; font: 700 13px/24px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                cursor: pointer; }
+            .xpt-follow-dark { background: #eff3f4; color: #0f1419; }
+            .xpt-follow-light { background: #0f1419; color: #ffffff; }
+            .xpt-follow:hover { opacity: 0.85; }
+            .xpt-follow:disabled { opacity: 0.5; cursor: progress; }
+            /* While the Follow button drives the post menu, the menu stays out of sight. */
+            html.xpt-quiet #layers [role="menu"] { opacity: 0 !important; }
         `);
         return css.join('\n');
     }
