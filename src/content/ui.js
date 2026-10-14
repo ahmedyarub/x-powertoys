@@ -930,7 +930,7 @@
     }
 
     // What the other content scripts share: helpers, and scanners run with every page change.
-    XPT.ui = { postIdOf, pagePostId, toast, isDark, svgIcon, schedule: () => schedule() };
+    XPT.ui = { postIdOf, pagePostId, svgIcon };
     XPT.scanners = [];
 
     // A timer rather than an animation frame: frames do not run in a tab opened in the background.

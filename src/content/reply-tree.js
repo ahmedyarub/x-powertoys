@@ -99,13 +99,6 @@
         return tree;
     }
 
-    /** The ids from the post down, level by level. */
-    function breadthFirst(conversation, tree = children(conversation)) {
-        const order = [conversation.root.id];
-        for (let index = 0; index < order.length; index++) order.push(...(tree.get(order[index]) || []));
-        return order;
-    }
-
     /** What more a reply can load: its thread's rest, more of its replies, or its replies at all. */
     function moreAt(conversation, id, tree = children(conversation)) {
         const more = [];
@@ -166,5 +159,5 @@
         return works.length ? works : rootWork();
     }
 
-    root.XPT_REPLY_TREE = { createConversation, source, merge, children, breadthFirst, depthFirst, moreAt, nextWork, nextWorks };
+    root.XPT_REPLY_TREE = { createConversation, merge, children, moreAt, nextWork, nextWorks };
 })(typeof module !== 'undefined' && module.exports ? module.exports : globalThis);

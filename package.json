@@ -8,6 +8,7 @@
         "test": "node --test \"test/**/*.test.js\"",
         "lint": "npx --yes web-ext@8 lint --source-dir . --ignore-files test package.json README.md",
         "start": "npx --yes web-ext@8 run --source-dir . --ignore-files test package.json README.md",
-        "build": "npx --yes web-ext@8 build --source-dir . --overwrite-dest --ignore-files test package.json README.md"
+        "build": "npx --yes web-ext@8 build --source-dir . --overwrite-dest --ignore-files test package.json README.md",
+        "sign": "npx --yes web-ext@8 sign --source-dir . --channel=unlisted --ignore-files test package.json README.md"
     }
 }

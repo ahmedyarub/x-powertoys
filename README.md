@@ -9,16 +9,16 @@ turned on and off in the settings.
 
 Needs Firefox 128 or newer (content scripts in the page's own world).
 
-- **Try it:** open `about:debugging#/runtime/this-firefox`, choose *Load Temporary Add-on…* and pick
-  `manifest.json`. It stays until Firefox restarts.
+- **Install:** download the `.xpi` from the [latest release](https://github.com/ahmedyarub/x-powertoys/releases/latest)
+  and open it in Firefox (or drag it onto a Firefox window). It is signed by Mozilla, so it installs
+  permanently in release Firefox.
+- **Try a change:** open `about:debugging#/runtime/this-firefox`, choose *Load Temporary Add-on…* and
+  pick `manifest.json`. It stays until Firefox restarts.
 - **Run from source:** `npm run start` launches Firefox with the extension loaded.
-- **Keep it installed:** `npm run build` writes a zip to `web-ext-artifacts/`. Release Firefox only
-  installs signed add-ons, so either sign it on [addons.mozilla.org](https://addons.mozilla.org/developers/)
-  (an unlisted submission is signed automatically), or use Firefox Developer Edition / Nightly with
-  `xpinstall.signatures.required` set to `false`.
 
 Settings live behind the toolbar button (feed filters and keywords) and on the add-on's options page
-(everything). Changes that work on what x.com downloads (filters, ads, rewrites) refresh the open x.com pages on Save; the rest apply at once.
+(everything). Changes that work on what x.com downloads (filters, ads, rewrites) refresh the open
+x.com pages on Save; the rest apply at once.
 
 ## How it works
 
@@ -105,8 +105,9 @@ button is matched by its English label too.
 ## Development
 
 ```sh
-npm test          # node's test runner over the response and request transforms
+npm test          # node's test runner over the transforms, the page hook and the reply tree
 npm run lint      # web-ext lint
 npm run start     # Firefox with the extension, reloading on change
-npm run build     # zip for signing
+npm run build     # zip, in web-ext-artifacts/
+npm run sign      # Mozilla-signed .xpi (unlisted); needs WEB_EXT_API_KEY and WEB_EXT_API_SECRET
 ```
