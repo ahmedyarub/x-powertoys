@@ -603,8 +603,8 @@
     };
 
     if (window.Clipboard?.prototype?.writeText) {
-        const nativeWriteText = Clipboard.prototype.writeText;
-        Clipboard.prototype.writeText = function (text) {
+        const nativeWriteText = window.Clipboard.prototype.writeText;
+        window.Clipboard.prototype.writeText = function (text) {
             return nativeWriteText.call(this, shareText(String(text)));
         };
     }
