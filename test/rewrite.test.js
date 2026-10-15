@@ -323,7 +323,10 @@ test('conversations: reply threads, their Show more, further pages; not the post
 });
 
 test('summaries carry the author and whether you follow them', () => {
-    assert.deepEqual(R.summarize(tweet('1')).author, { id: '1', following: false, followRequestSent: false, blocking: false, blockedBy: false });
+    assert.deepEqual(R.summarize(tweet('1')).author, { id: '1', following: false, followKnown: true, followRequestSent: false, blocking: false, blockedBy: false });
+    const unknown = tweet('4');
+    delete unknown.core.user_results.result.relationship_perspectives;
+    assert.equal(R.summarize(unknown).author.followKnown, false);
     assert.equal(R.summarize(tweet('2', { following: true })).author.following, true);
 
     const requested = tweet('3');

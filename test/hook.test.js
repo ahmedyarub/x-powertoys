@@ -189,3 +189,23 @@ test('Not interested feedback is reported once the server confirms it, an Undo a
     post(env, url, body(true), 200, '{"data":{}}');
     assert.deepEqual(env.messages.filter((m) => m.type === 'feedback').map((m) => m.undo), [false, true]);
 });
+
+test('posts say not following only when the site said so', () => {
+    const env = page();
+    const unknown = env.post('11', false);
+    delete unknown.core.user_results.result.relationship_perspectives;
+    const timeline = new env.context.XMLHttpRequest();
+    timeline.open('GET', 'https://x.com/i/api/graphql/q/HomeTimeline');
+    timeline.send();
+    timeline.readyState = 4;
+    timeline.body = JSON.stringify({ data: { a: env.post('9', false), b: env.post('10', true), c: unknown } });
+    void timeline.responseText;
+
+    const notFollowing = (id) => {
+        env.deliver({ to: 'page', type: 'getPost', id, requestId: `nf-${id}` });
+        return env.messages.find((message) => message.requestId === `nf-${id}`).post.notFollowing;
+    };
+    assert.equal(notFollowing('9'), true, 'not followed');
+    assert.equal(notFollowing('10'), false, 'followed');
+    assert.equal(notFollowing('11'), false, 'not said: taken as not known, so no Not interested');
+});

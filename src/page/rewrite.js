@@ -518,6 +518,8 @@
             author: {
                 id: user?.rest_id || '',
                 following: user?.relationship_perspectives?.following === true || user?.legacy?.following === true,
+                // Whether the site said at all; a post can come without it.
+                followKnown: typeof user?.relationship_perspectives?.following === 'boolean' || typeof user?.legacy?.following === 'boolean',
                 followRequestSent: user?.follow_request_sent === true || user?.legacy?.follow_request_sent === true,
                 blocking: user?.relationship_perspectives?.blocking === true,
                 blockedBy: user?.relationship_perspectives?.blocked_by === true,

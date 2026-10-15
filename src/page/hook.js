@@ -178,6 +178,8 @@
     function describe(post) {
         const summary = R.summarize(post);
         summary.followState = followState(summary.author);
+        // 'none' only counts when it is known: from the post's data or a confirmed unfollow.
+        summary.notFollowing = summary.followState === 'none' && (summary.author.followKnown || confirmedFollows.has(summary.author.id));
         if (confirmedBlocks.has(summary.author.id)) summary.author.blocking = confirmedBlocks.get(summary.author.id) === 'blocked';
         summary.takesFeedback = withFeedback.has(summary.id);
         summary.isViewer = summary.author.id !== '' && summary.author.id === viewerId();

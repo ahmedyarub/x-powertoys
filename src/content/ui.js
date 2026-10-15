@@ -633,12 +633,12 @@
         const bar = document.createElement('span');
         bar.className = `xpt-actions ${isDark() ? 'xpt-actions-dark' : 'xpt-actions-light'}`;
 
-        if (XPT.on('followButton') && post.followState === 'none' && !author.blocking && !author.blockedBy) {
+        if (XPT.on('followButton') && post.notFollowing && !author.blocking && !author.blockedBy) {
             bar.append(actionButton('Follow', `Follow @${post.screenName}`, 'xpt-follow', () => follow(article, post)));
         }
         if (XPT.on('postActionButtons')) {
             // Not interested is for accounts you do not follow, and only where the site takes it.
-            if (XPT.opt('postActionButtons', 'showNotInterested') && post.takesFeedback && post.followState === 'none') {
+            if (XPT.opt('postActionButtons', 'showNotInterested') && post.takesFeedback && post.notFollowing) {
                 bar.append(actionButton('Not interested', 'Not interested in this post', 'xpt-chip', (button) => notInterested(article, post, button)));
             }
             if (XPT.opt('postActionButtons', 'showBlock') && !author.blocking) {
